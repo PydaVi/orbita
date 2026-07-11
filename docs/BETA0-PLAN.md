@@ -31,19 +31,29 @@ social.orbita.shelf.item
 
 Note: sem nota, sem afinidade, sem constelação, sem tipo de obra — só o gesto de adicionar algo à estante.
 
-## Perguntas em aberto
+## Decisões já fechadas
 
-Estas são as decisões que ainda precisam de conversa antes do Beta 0 virar código:
+1. **Stack: Go.** Confirmado que não há impedimento técnico — `github.com/bluesky-social/indigo` é o monorepo Go oficial do Bluesky/AT Protocol (o mesmo de onde vem o Tap) e cobre exatamente o que este beta precisa: `atproto/auth/oauth` (cliente OAuth), `atproto/identity` (resolução de DID/handle), `atproto/lexicon` (validação de schema), `atproto/repo` (estrutura de repositório), `atproto/atcrypto` (assinatura/criptografia). Não é um workaround — é a implementação de referência, a mesma que roda a infraestrutura real do Bluesky. Mantém as duas bases (`comum` e `orbita`) na mesma linguagem.
+   - **Risco aceito e documentado, não escondido:** o próprio Indigo se declara em desenvolvimento ativo — "features and software interfaces have not stabilized and may break or be removed". Ou seja: esperar alguma quebra de API ao atualizar dependências, e pinar versão explicitamente desde o primeiro `go.mod`. Mesmo espírito de risco já aceito conscientemente em `comum` (rate-gate do MusicBrainz, cache fail-open) — nomeado aqui, não descoberto depois.
 
-1. **Stack** — seguir o stack de referência do tutorial (Next.js/TypeScript, caminho oficial mais documentado) ou manter Go (consistente com `comum` e o princípio "stdlib first, dependência quando o problema já foi sentido")? Ir de Go aqui significa portar padrões do ecossistema JS na mão; ir de TS significa uma segunda linguagem entre os dois repositórios.
+3. **Identidades de teste: híbrido.** Dois ambientes, propósitos diferentes:
+   - **PDS de desenvolvimento local** (via `indigo/cmd/pds` rodando localmente) para o loop do dia a dia — rápido, descartável, sem rate limit, sem sujar a rede real com registro de teste. Mesmo papel que Postgres/Redis local já cumprem em `comum`.
+   - **Conta(s) reais da Bluesky** para validação periódica de interoperabilidade de verdade — confirmar que um registro `social.orbita.shelf.item` escrito por este código sobrevive num PDS de produção real, não só no ambiente controlado. Tecnicamente possível sem fricção: o protocolo não exige aprovação da Bluesky pra escrever um NSID customizado no repositório de alguém — é exatamente esse o ponto do AT Protocol.
+   - Critério prático: o Beta 0 só conta como validado (item 5) quando passar nos dois ambientes, não só no local.
 
-2. **O que é "obra" sem catalog-service** — o Lexicon referencia uma obra por slug, mas não há resolução de catálogo neste beta. Assumir slug como string livre (sem validação) parece o suficiente pro escopo mínimo — confirmar se isso é aceitável ou se já vale importar alguma checagem.
+4. **Licença: AGPL-3.0.** Mesma escolha do Mastodon, e pelo mesmo motivo específico: a cláusula de uso em rede fecha a brecha que o GPL comum deixa aberto — sem ela, alguém poderia pegar o código, modificar, e operar como serviço hospedado sem nunca precisar distribuir as modificações (usuário só interage pela rede, nunca recebe uma cópia do software). AGPL obriga a disponibilizar o código modificado a quem usa o serviço pela rede, não só a quem recebe uma cópia binária. É a proteção certa contra "alguém fecha isso e vende" sem impedir uso/estudo/fork legítimo.
 
-3. **De quem são os DIDs de teste** — usar contas reais da Bluesky (a própria, e talvez 1-2 pessoas que topem testar) ou subir um PDS de desenvolvimento local (mais perto do ambiente do tutorial, mas foge do caminho "usar a rede que já existe" que foi a decisão consciente de não hospedar PDS próprio agora).
+5. **Critério de "Beta 0 concluído"** — confirmado: login via OAuth funcionando contra uma conta real, um registro `social.orbita.shelf.item` criado no PDS dessa conta, Tap sincronizando esse registro pra um banco local, e uma página simples listando o que foi sincronizado. Sem UI além disso, sem segundo Lexicon, sem afinidade.
 
-4. **Licença** — AGPL-3.0 (mesma escolha do Mastodon; existe justamente pra impedir alguém pegar o código, fechar, e operar um serviço proprietário em cima) vs MIT (mais permissivo, mais fácil pra atrair contribuição casual, mas não impede um fork fechado) vs adiar a decisão. Nenhuma opção aqui é neutra — vale decidir com calma, não por padrão.
+## Pergunta em aberto — reformulada
 
-5. **Critério de "Beta 0 concluído"** — proposta mínima pra validar ou revisar: login via OAuth funcionando contra uma conta real, um registro `social.orbita.shelf.item` criado no PDS dessa conta, Tap sincronizando esse registro pra um banco local, e uma página simples listando o que foi sincronizado. Sem UI além disso, sem segundo Lexicon, sem afinidade.
+2. **O que vai dentro do campo que identifica a obra, já que não existe catalog-service aqui?**
+
+   Em `comum`, uma obra tem um slug estável, resolvido e validado contra TMDB/MusicBrainz/Open Library (Beta 4). Aqui, no Beta 0, não existe nenhum serviço de catálogo — então quando alguém adicionar "Matrix" à estante, o que vai no registro `social.orbita.shelf.item.workSlug`?
+
+   A proposta mínima é: **uma string livre, digitada ou fixada no código do teste, sem validação nenhuma** — acontece de "matrix" ser só um texto qualquer neste beta, sem checar se existe, sem impedir que outra pessoa grave "the-matrix" pro mesmo filme. Aceitar essa inconsistência de propósito agora (ela só vira problema real quando houver mais de uma pessoa testando e afinidade entrar em cena, o que é beta seguinte) é mais simples do que importar qualquer noção de catálogo cedo demais.
+
+   Pergunta: essa simplificação (string livre, zero validação, inconsistência aceita) serve pro Beta 0, ou você já quer algum tipo de lista fixa/travada de slugs válidos desde já?
 
 ## Fora de escopo neste beta (de propósito)
 

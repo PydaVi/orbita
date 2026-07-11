@@ -38,7 +38,7 @@ Se o servidor da Órbita fechasse hoje, a estante cultural de alguém sumiria ju
 
 ## Licença
 
-Ainda em decisão — ver discussão em [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md#licença). A intenção declarada é código aberto; falta fechar qual licença melhor protege isso de virar produto fechado de terceiros no futuro.
+[AGPL-3.0](LICENSE). Mesma escolha do Mastodon, pelo mesmo motivo: a cláusula de uso em rede fecha a brecha que o GPL comum deixa aberta — sem ela, alguém poderia pegar o código, modificar, e operar como serviço hospedado sem nunca precisar devolver as modificações à comunidade, já que quem usa só interage pela rede, nunca recebe uma cópia do software. Aberto pra estudar, usar e contribuir; protegido contra virar produto fechado de terceiro.
 
 ## Contribuindo
 
