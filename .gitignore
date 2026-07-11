@@ -1,0 +1,10 @@
+# genérico por enquanto — stack ainda em decisão (ver docs/BETA0-PLAN.md)
+.DS_Store
+*.swp
+.env
+.env.local
+node_modules/
+dist/
+build/
+*.db
+*.sqlite
