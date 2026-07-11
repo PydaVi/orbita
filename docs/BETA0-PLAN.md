@@ -1,6 +1,6 @@
 # Beta 0 — rascunho de planejamento
 
-**Status:** em aberto. Isto é ponto de partida pra discussão, não um roadmap fechado — nada aqui deve ser lido como decidido só porque está escrito.
+**Status:** decisões da primeira rodada fechadas (stack, licença, identidades de teste, critério de conclusão, identificação de obra). Continua sendo um documento vivo — decisão fechada aqui significa "o suficiente pra começar a escrever código", não "impossível de revisitar".
 
 ## Objetivo
 
@@ -45,19 +45,16 @@ Note: sem nota, sem afinidade, sem constelação, sem tipo de obra — só o ges
 
 5. **Critério de "Beta 0 concluído"** — confirmado: login via OAuth funcionando contra uma conta real, um registro `social.orbita.shelf.item` criado no PDS dessa conta, Tap sincronizando esse registro pra um banco local, e uma página simples listando o que foi sincronizado. Sem UI além disso, sem segundo Lexicon, sem afinidade.
 
-## Pergunta em aberto — reformulada
+2. **Identificação da obra: string livre, sem validação, neste beta.** Confirmado: `workSlug` é só texto (`"matrix"`), digitado ou fixado no código do teste, sem checar existência, sem impedir que outra pessoa grave `"the-matrix"` pro mesmo filme. Aceito de propósito — ver nota abaixo sobre quando isso deixa de ser aceitável.
 
-2. **O que vai dentro do campo que identifica a obra, já que não existe catalog-service aqui?**
+## Anotado para depois (não é problema do Beta 0)
 
-   Em `comum`, uma obra tem um slug estável, resolvido e validado contra TMDB/MusicBrainz/Open Library (Beta 4). Aqui, no Beta 0, não existe nenhum serviço de catálogo — então quando alguém adicionar "Matrix" à estante, o que vai no registro `social.orbita.shelf.item.workSlug`?
+Ponto real, levantado depois de fechar a decisão acima: obra é recurso compartilhado, não possuído por ninguém (o próprio roadmap de `comum` já nomeava isso antes de qualquer código de AT Protocol existir — seção "O catálogo de obras"). String livre resolve o Beta 0 porque só existe uma pessoa testando; quebra assim que duas pessoas divergem no texto pro mesmo filme, ou quando afinidade precisar comparar estantes de verdade.
 
-   A proposta mínima é: **uma string livre, digitada ou fixada no código do teste, sem validação nenhuma** — acontece de "matrix" ser só um texto qualquer neste beta, sem checar se existe, sem impedir que outra pessoa grave "the-matrix" pro mesmo filme. Aceitar essa inconsistência de propósito agora (ela só vira problema real quando houver mais de uma pessoa testando e afinidade entrar em cena, o que é beta seguinte) é mais simples do que importar qualquer noção de catálogo cedo demais.
+A direção mais provável, quando esse beta chegar, **não é reinventar um catalog-service central** — é usar o padrão idiomático do próprio AT Protocol pra referência entre registros: um **strongRef** (par URI+CID, o mesmo mecanismo que um "like" do Bluesky usa pra apontar pro post curtido) em vez de uma string solta. Na prática:
 
-   Pergunta: essa simplificação (string livre, zero validação, inconsistência aceita) serve pro Beta 0, ou você já quer algum tipo de lista fixa/travada de slugs válidos desde já?
+- Um record type novo, `social.orbita.work`, publicado não pelo usuário mas pela própria conta de serviço da Órbita (ou futuramente por qualquer AppView que queira publicar catálogo) — um registro por obra, com identidade estável.
+- A resolução externa que `comum` já validou (TMDB/MusicBrainz/Open Library — [ADR-009](https://github.com/PydaVi/comum/blob/main/docs/decisions/ADR-009-resolucao-externa-catalogo.md)) é reaproveitável quase sem mudança: mesma lógica de busca/normalização, só que o resultado vira um record `social.orbita.work` publicado, em vez de uma linha na tabela `works`.
+- `social.orbita.shelf.item.work` passa a ser um strongRef pra esse registro, não mais uma string — duas pessoas adicionando "Matrix" à estante apontam pro mesmo registro, não pra dois textos parecidos.
 
-## Fora de escopo neste beta (de propósito)
-
-- PDS próprio — usamos o PDS que a conta já tem
-- Mais de um tipo de registro (nota, afinidade, constelação ficam pra depois)
-- Qualquer UI além do mínimo necessário pra provar que o dado sincronizou
-- Federação entre múltiplas AppViews — aqui só existe a nossa, lendo uma rede que já existe
+Não decidir isso agora — só não deixar essa observação se perder antes do beta em que ela importa.
