@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "social.orbita.shelf.item",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Uma obra adicionada à estante de alguém.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["workSlug", "createdAt"],
+        "properties": {
+          "workSlug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Identificador textual da obra — sem validação neste beta, ver docs/BETA0-PLAN.md"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}
