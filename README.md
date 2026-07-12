@@ -7,9 +7,9 @@ Este repositório é o começo de uma AppView da Órbita sobre o **AT Protocol**
 
 ## De onde isso vem
 
-A Órbita nasceu em [`comum`](https://github.com/PydaVi/comum) como laboratório de sistemas distribuídos — um produto real, construído beta a beta, sentindo cada problema (estado persistente, cache, afinidade O(n²), observabilidade, escala horizontal) antes de usar a ferramenta que o resolve. Esse repositório continua vivo lá, como referência de estudo.
+A Órbita nasceu como laboratório de sistemas distribuídos, um produto real, construído para simular problemas de devops/SRE como resiliência de sistemas distribuídos, estado persistente, cache, observabilidade, escala horizontal etc.
 
-Este aqui é a continuação natural: migrar a mesma ideia de produto para uma arquitetura onde ninguém — nem a própria Órbita — é dona dos dados de quem usa. `orbita` nasce já pensado para além do autor: uma AppView pública, construída em aberto, dentro da comunidade do AT Protocol.
+No fim, construí pra esse lab um produto que me empolgou tanto que esse aqui é a continuação natural: migrar a mesma ideia de produto para uma arquitetura onde ninguém — nem a própria Órbita — é dona dos dados de quem usa. `orbita` nasce já pensado para além do autor: uma AppView pública, construída em aberto, dentro da comunidade do AT Protocol.
 
 ## O que diferencia a Órbita
 
@@ -18,8 +18,6 @@ Este aqui é a continuação natural: migrar a mesma ideia de produto para uma a
 - **Sem métrica pública de popularidade.** Contagem de seguidores existe só no seu próprio perfil, nunca como dado de status no perfil alheio.
 - **Afinidade não é número, é forma.** A estante de cada pessoa desenha uma constelação; afinidade acontece quando duas constelações se parecem, sem exibir um placar de compatibilidade.
 - **Não é ambiente para criador de conteúdo.** É espaço para comunidade se encontrar pelo que ama de verdade.
-
-Os princípios completos — o porquê de cada decisão de produto — vivem no [`CLAUDE.md` de `comum`](https://github.com/PydaVi/comum/blob/main/CLAUDE.md). Este repositório parte deles; uma versão própria, adaptada ao contexto de AppView federada, é um dos primeiros itens em aberto do Beta 0.
 
 ## Estado atual
 
@@ -48,4 +46,4 @@ Se o servidor da Órbita fechasse hoje, a estante cultural de alguém sumiria ju
 
 ## Contribuindo
 
-Ainda não há processo formal — este é literalmente o estágio de desenhar o primeiro passo. Se a ideia ressoa com você, abra uma issue com pergunta, crítica ou interesse em ajudar. O objetivo do Beta 0 é justamente descobrir, em público, se e como isso vira trabalho de mais gente além de uma pessoa só.
+Ainda não há processo formal, este é literalmente o estágio de desenhar o primeiro passo. Se a ideia ressoa com você, abra uma issue com pergunta, crítica ou interesse em ajudar. O objetivo do Beta 0 é justamente descobrir, em público, se e como isso vira trabalho de mais gente além de uma pessoa só.

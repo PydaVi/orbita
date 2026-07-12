@@ -1,4 +1,4 @@
-# stack definida: Go (ver docs/BETA0-PLAN.md)
+# stack principal: Go (ver docs/BETA0-PLAN.md) — mas scripts/ tem tooling Node auxiliar
 .DS_Store
 *.swp
 .env
@@ -9,3 +9,6 @@
 # binários de build do Go — `go build ./...` sem -o escreve na raiz
 /appview
 /cmd/*/*.exe
+
+# tooling Node auxiliar (ex: scripts/dev-pds), não faz parte do app Go
+node_modules/
