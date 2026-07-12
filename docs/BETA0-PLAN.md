@@ -8,6 +8,21 @@ No mesmo espírito do Beta 0 de `comum` ("produto antes de infraestrutura"), o o
 
 Sentir o problema mínimo primeiro: autenticar contra uma identidade que não é nossa, escrever um registro num repositório que não controlamos, e ler esse dado de volta.
 
+## Progresso
+
+- [x] Lexicon `social.orbita.shelf.item` — [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json)
+- [x] Esqueleto do módulo Go (módulo único, `go 1.25.0`) — [`cmd/appview/main.go`](../cmd/appview/main.go), só `/health` por enquanto
+- [ ] OAuth contra uma conta real (`atproto/auth/oauth`)
+- [ ] Escrita do registro no PDS via sessão autenticada
+- [ ] PDS de desenvolvimento local (`indigo/cmd/pds`) pro loop do dia a dia
+- [ ] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item`
+- [ ] Banco local (indexação da cópia sincronizada — ver "Onde cada dado mora" abaixo)
+- [ ] Página simples listando o que foi sincronizado
+
+## Onde cada dado mora
+
+Distinção que vale manter fixada em código, não só em conversa: **PDS é a fonte da verdade** (o registro que a pessoa autorou, no repositório dela); **AppView é view derivada, descartável e reconstruível** (nossa cópia indexada, nunca autoritativa — mesmo papel que Redis já cumpre em `comum` hoje, só que agora a "fonte da verdade" também saiu do nosso controle). Mesmo a própria escrita do usuário logado passa pelo Tap antes de aparecer no nosso banco — não existe atalho de gravação direta local, nem pros próprios dados de quem está usando.
+
 ## Referência de estudo
 
 Tutorial oficial **Statusphere** (`atproto.com/guides/statusphere-tutorial`) é a referência mais próxima de um "Beta 0" que a própria documentação do AT Protocol oferece. Arquitetura confirmada (verificada em duas fontes — página do tutorial e repositório de exemplo):
@@ -20,16 +35,9 @@ Tutorial oficial **Statusphere** (`atproto.com/guides/statusphere-tutorial`) é 
 
 ## O que muda em relação ao Statusphere
 
-Statusphere usa um Lexicon só (`xyz.statusphere.status`, um emoji como status). Pra Órbita, o gesto equivalente mais próximo do "gesto fundamental" do produto — o próprio `CLAUDE.md` de `comum` chama a estante de "a ação mais importante da Órbita" — seria um primeiro Lexicon próprio: `social.orbita.shelf.item`.
+Statusphere usa um Lexicon só (`xyz.statusphere.status`, um emoji como status). Pra Órbita, o gesto equivalente mais próximo do "gesto fundamental" do produto — o próprio `CLAUDE.md` de `comum` chama a estante de "a ação mais importante da Órbita" — é um primeiro Lexicon próprio: `social.orbita.shelf.item`, já escrito e validado contra exemplos reais (`xyz.statusphere.status`, `app.bsky.feed.like`) em [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json).
 
-Rascunho de schema mínimo (a decidir):
-```
-social.orbita.shelf.item
-  workSlug: string   # sem resolver contra catálogo nenhum ainda neste beta
-  createdAt: datetime
-```
-
-Note: sem nota, sem afinidade, sem constelação, sem tipo de obra — só o gesto de adicionar algo à estante.
+Sem nota, sem afinidade, sem constelação, sem tipo de obra — só o gesto de adicionar algo à estante.
 
 ## Decisões já fechadas
 
@@ -58,3 +66,9 @@ A direção mais provável, quando esse beta chegar, **não é reinventar um cat
 - `social.orbita.shelf.item.work` passa a ser um strongRef pra esse registro, não mais uma string — duas pessoas adicionando "Matrix" à estante apontam pro mesmo registro, não pra dois textos parecidos.
 
 Não decidir isso agora — só não deixar essa observação se perder antes do beta em que ela importa.
+
+### Sobre não hospedar PDS próprio: vale só pros usuários, não necessariamente pra nós
+
+"Não hospedar PDS próprio" (decisão de cima) é sobre não pedir que pessoas migrem de identidade — é o padrão já usado por outros microapps do ecossistema (Frontpage, Smoke Signal, Flashes, WhiteWind: nenhum hospeda PDS pros usuários, todos escrevem Lexicon customizado no PDS que a pessoa já tem, geralmente o da própria Bluesky). Isso não onera a infraestrutura deles de forma desproporcional: escrita é pequena e é a conta da própria pessoa, e leitura/sincronização não bate em PDS nenhum — consome o firehose/relay, que já existe pra rede inteira independente de nós.
+
+Mas quando `social.orbita.work` (o catálogo canônico, seção acima) existir, essa conta de serviço não é de uma pessoa — é infraestrutura nossa, com crescimento que nós controlamos. Faz sentido, nesse momento, self-hostar um PDS só pra essa única conta — lift muito menor que hospedar PDS pra todo mundo, e tira de terceiro exatamente a parte que é responsabilidade nossa de verdade. Não é contradição com a decisão de cima, é o mesmo princípio aplicado com mais precisão: não pedir migração de ninguém, mas também não terceirizar o que é nosso.

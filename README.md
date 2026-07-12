@@ -23,7 +23,13 @@ Os princípios completos — o porquê de cada decisão de produto — vivem no 
 
 ## Estado atual
 
-**Beta 0 — em planejamento.** Ainda não há código de produto aqui, só o rascunho do primeiro passo: provar a fatia mínima da Órbita rodando de ponta a ponta sobre AT Protocol real (autenticação, um único tipo de registro, sincronização). Ver [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md) — é um rascunho aberto, não um roadmap fechado.
+**Beta 0 — em andamento.** Decisões da primeira rodada fechadas (stack Go, licença, identidades de teste híbridas, critério de conclusão) — ver [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), que continua vivo e é atualizado a cada passo real, não só na hora do planejamento.
+
+O que já existe:
+- [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — o primeiro Lexicon, schema do gesto de adicionar uma obra à estante
+- [`cmd/appview/main.go`](cmd/appview/main.go) — esqueleto do servidor Go, só um `/health` por enquanto
+
+O que falta pro Beta 0 ser considerado concluído (ver critério em `docs/BETA0-PLAN.md`): OAuth de verdade contra uma conta real, escrita do registro no PDS, sincronização via Tap, e uma página simples listando o que sincronizou. Nada disso está implementado ainda.
 
 Isso é um hobby virando ideia, documentado em público. Progresso e decisões saem também no perfil [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) *(em breve)*.
 
