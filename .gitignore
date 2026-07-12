@@ -1,10 +1,11 @@
-# genérico por enquanto — stack ainda em decisão (ver docs/BETA0-PLAN.md)
+# stack definida: Go (ver docs/BETA0-PLAN.md)
 .DS_Store
 *.swp
 .env
 .env.local
-node_modules/
-dist/
-build/
 *.db
 *.sqlite
+
+# binários de build do Go — `go build ./...` sem -o escreve na raiz
+/appview
+/cmd/*/*.exe
