@@ -26,8 +26,10 @@ No fim, construí pra esse lab um produto que me empolgou tanto que esse aqui é
 O que já existe:
 - [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — o primeiro Lexicon, schema do gesto de adicionar uma obra à estante
 - [`cmd/appview/main.go`](cmd/appview/main.go) — esqueleto do servidor Go, só um `/health` por enquanto
+- [`scripts/dev-pds/`](scripts/dev-pds/) — PDS + PLC locais e descartáveis, sem Postgres, sem TLS, pra estudar e testar sem depender de conta real
+- Ciclo manual completo já validado à mão (criar conta → escrever registro → ler de volta) — arquitetura documentada em [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-O que falta pro Beta 0 ser considerado concluído (ver critério em `docs/BETA0-PLAN.md`): OAuth de verdade contra uma conta real, escrita do registro no PDS, sincronização via Tap, e uma página simples listando o que sincronizou. Nada disso está implementado ainda.
+O que falta pro Beta 0 ser considerado concluído (ver critério em `docs/BETA0-PLAN.md`): OAuth de verdade contra uma conta real, esse mesmo ciclo em código Go (não mais `curl`), sincronização via Tap, e uma página simples listando o que sincronizou.
 
 Isso é um hobby virando ideia, documentado em público. Progresso e decisões saem também no perfil [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) *(em breve)*.
 

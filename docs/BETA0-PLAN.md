@@ -15,7 +15,8 @@ Sentir o problema mínimo primeiro: autenticar contra uma identidade que não é
 - [ ] OAuth contra uma conta real (`atproto/auth/oauth`)
 - [ ] Escrita do registro no PDS via sessão autenticada
 - [x] PDS de desenvolvimento local — [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs), via `@atproto/dev-env` (`TestNetworkNoAppView`: só PLC + PDS, sem Bsky AppView/Ozone/Postgres)
-- [ ] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item`
+- [x] Ciclo manual completo validado via `curl` (criar conta → escrever `shelf.item` → ler de volta) — ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
+- [ ] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item` — desenho já documentado em [`docs/architecture-beta0-local.md`](architecture-beta0-local.md), falta rodar de verdade
 - [ ] Banco local (indexação da cópia sincronizada — ver "Onde cada dado mora" abaixo)
 - [ ] Página simples listando o que foi sincronizado
 
