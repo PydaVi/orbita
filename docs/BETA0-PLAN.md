@@ -1,6 +1,6 @@
 # Beta 0 — rascunho de planejamento
 
-**Status:** decisões da primeira rodada fechadas (stack, licença, identidades de teste, critério de conclusão, identificação de obra). Continua sendo um documento vivo — decisão fechada aqui significa "o suficiente pra começar a escrever código", não "impossível de revisitar".
+**Status:** decisões da primeira rodada fechadas (stack, licença, identidades de teste, critério de conclusão, identificação de obra). Continua sendo um documento vivo — decisão fechada aqui significa "o suficiente pra começar a escrever código", não "impossível de revisitar". Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
 
 ## Objetivo
 
@@ -16,7 +16,7 @@ Sentir o problema mínimo primeiro: autenticar contra uma identidade que não é
 - [ ] Escrita do registro no PDS via sessão autenticada
 - [x] PDS de desenvolvimento local — [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs), via `@atproto/dev-env` (`TestNetworkNoAppView`: só PLC + PDS, sem Bsky AppView/Ozone/Postgres)
 - [x] Ciclo manual completo validado via `curl` (criar conta → escrever `shelf.item` → ler de volta) — ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
-- [ ] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item` — desenho já documentado em [`docs/architecture-beta0-local.md`](architecture-beta0-local.md), falta rodar de verdade
+- [x] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item` — rodado de verdade, backfill confirmado, ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
 - [ ] Banco local (indexação da cópia sincronizada — ver "Onde cada dado mora" abaixo)
 - [ ] Página simples listando o que foi sincronizado
 

@@ -61,11 +61,38 @@ Sequência real, executada via `curl` contra o PDS local:
 
 Detalhe registrado durante o teste: a resposta trouxe `"validationStatus": "unknown"` — o PDS aceita qualquer NSID sem validar contra o Lexicon, porque não tem de onde saber que o nosso schema existe. Validação de schema é responsabilidade do lado cliente, não do servidor.
 
+## Pipeline validado de ponta a ponta
+
+Rodamos o Tap de verdade (binário compilado via `go install github.com/bluesky-social/indigo/cmd/tap`), configurado assim:
+
+```
+TAP_PLC_URL=http://localhost:33195
+TAP_RELAY_URL=http://localhost:2583        # nosso PDS local, não o relay real
+TAP_SIGNAL_COLLECTION=social.orbita.shelf.item
+TAP_COLLECTION_FILTERS=social.orbita.shelf.item
+TAP_WEBHOOK_URL=http://localhost:8092/webhook
+TAP_NO_REPLAY=true
+```
+
+Ao escrever um segundo registro (`workSlug: duna-parte-2`) com o Tap já conectado, o log mostrou o mecanismo de **backfill** de verdade: `"fetching repo from PDS"` → `"parsing repo CAR"` → `"iterating repo records"`. O Tap não entregou só o evento novo — foi buscar o repositório inteiro (exportado em CAR) porque essa era a primeira vez que ele via esse DID, e reprocessou tudo. Resultado: nosso `cmd/appview` recebeu **três** eventos no `/webhook`, não um:
+
+```json
+{"id":1,"type":"identity","identity":{"did":"did:plc:...","handle":"handle.invalid","is_active":true,"status":"active"}}
+{"id":2,"type":"record","record":{"collection":"social.orbita.shelf.item","action":"create","record":{"workSlug":"matrix",...}}}
+{"id":3,"type":"record","record":{"collection":"social.orbita.shelf.item","action":"create","record":{"workSlug":"duna-parte-2",...}}}
+```
+
+`id:2` é o registro `matrix`, escrito **antes** do Tap sequer existir — veio só por causa do backfill.
+
+**`"handle": "handle.invalid"` não é bug.** Nosso handle de teste (`alice.test`) não é um domínio real, então a resolução bidirecional handle↔DID que estudamos (DNS TXT / `.well-known`, contra `alsoKnownAs` no documento DID) não tem como se confirmar — o Tap marca isso honestamente como inválido em vez de fingir que está tudo certo. É a mesma verificação de segurança da spec, funcionando.
+
+Também apareceu um erro periódico (`"failed to enumerate network"`, HTTP 401) — é uma tentativa separada do Tap de enumerar repositórios pré-existentes por coleção, que exige auth que não configuramos; não afeta o firehose ao vivo, que conectou e entregou normalmente.
+
 ## O que ainda falta (não implementado)
 
-- [ ] Rodar o Tap de verdade, apontado pro `:2583` local, e confirmar que ele entrega webhook quando um novo `social.orbita.shelf.item` é escrito
-- [ ] `cmd/appview` ganhar um handler `/webhook` que recebe isso e grava no banco local
+- [x] Rodar o Tap de verdade, apontado pro `:2583` local, e confirmar que ele entrega webhook quando um novo `social.orbita.shelf.item` é escrito
+- [x] `cmd/appview` ganhar um handler `/webhook` que recebe isso — só loga por enquanto, ainda não grava em banco
 - [ ] Trocar o `curl` manual por código Go real (`atproto/auth/oauth` pro login, `atproto/lex`/`atproto/repo` pra montar e assinar o registro)
-- [ ] Banco local (schema mínimo: `account` + a cópia indexada de `shelf.item`, como já descrito em `docs/BETA0-PLAN.md`)
+- [ ] Banco local (schema mínimo: `account` + a cópia indexada de `shelf.item`, como já descrito em `docs/BETA0-PLAN.md`) — os três eventos acima ainda só vão pro log, não pra uma tabela
 
 Ver checklist completo e decisões em [`docs/BETA0-PLAN.md`](BETA0-PLAN.md).

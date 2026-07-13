@@ -25,11 +25,11 @@ No fim, construí pra esse lab um produto que me empolgou tanto que esse aqui é
 
 O que já existe:
 - [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — o primeiro Lexicon, schema do gesto de adicionar uma obra à estante
-- [`cmd/appview/main.go`](cmd/appview/main.go) — esqueleto do servidor Go, só um `/health` por enquanto
+- [`cmd/appview/main.go`](cmd/appview/main.go) — servidor Go com `/health` e `/webhook` (recebe eventos do Tap, ainda só loga, não indexa)
 - [`scripts/dev-pds/`](scripts/dev-pds/) — PDS + PLC locais e descartáveis, sem Postgres, sem TLS, pra estudar e testar sem depender de conta real
-- Ciclo manual completo já validado à mão (criar conta → escrever registro → ler de volta) — arquitetura documentada em [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
+- Pipeline completo validado de ponta a ponta — PDS local → Tap → webhook, com backfill de registro pré-existente confirmado — arquitetura documentada em [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-O que falta pro Beta 0 ser considerado concluído (ver critério em `docs/BETA0-PLAN.md`): OAuth de verdade contra uma conta real, esse mesmo ciclo em código Go (não mais `curl`), sincronização via Tap, e uma página simples listando o que sincronizou.
+O que falta pro Beta 0 ser considerado concluído (ver critério em `docs/BETA0-PLAN.md`): OAuth de verdade contra uma conta real (todo esse ciclo hoje é feito via `curl`, não código Go), e indexar o que o webhook recebe num banco local.
 
 Isso é um hobby virando ideia, documentado em público. Progresso e decisões saem também no perfil [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) *(em breve)*.
 
@@ -45,6 +45,12 @@ Se o servidor da Órbita fechasse hoje, a estante cultural de alguém sumiria ju
 ## Licença
 
 [AGPL-3.0](LICENSE). Mesma escolha do Mastodon, pelo mesmo motivo: a cláusula de uso em rede fecha a brecha que o GPL comum deixa aberta — sem ela, alguém poderia pegar o código, modificar, e operar como serviço hospedado sem nunca precisar devolver as modificações à comunidade, já que quem usa só interage pela rede, nunca recebe uma cópia do software. Aberto pra estudar, usar e contribuir; protegido contra virar produto fechado de terceiro.
+
+## Uso de IA no desenvolvimento
+
+Este projeto é desenvolvido com uso ativo de assistentes de IA, como parceiro de pesquisa, implementação e documentação, sob minha direção e revisão em cada decisão. Nenhum princípio de produto, decisão de arquitetura ou linha de código entra aqui sem eu entender e validar o porquê primeiro; é esse o próprio motivo de manter tudo documentado (`docs/BETA0-PLAN.md`, os diagramas de arquitetura) tão de perto — inclusive coisas erradas que assumi e corrigi ao longo do caminho ficam registradas, não escondidas.
+
+Divulgo isso abertamente porque transparência já é um princípio não-negociável da própria Órbita como produto, seria incoerente pedir isso da rede social e esconder isso do processo que a constrói.
 
 ## Contribuindo
 
