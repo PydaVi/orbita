@@ -56,20 +56,35 @@ Sem nota, sem afinidade, sem constelação, sem tipo de obra — só o gesto de 
 
 2. **Identificação da obra: string livre, sem validação, neste beta.** Confirmado: `workSlug` é só texto (`"matrix"`), digitado ou fixado no código do teste, sem checar existência, sem impedir que outra pessoa grave `"the-matrix"` pro mesmo filme. Aceito de propósito — ver nota abaixo sobre quando isso deixa de ser aceitável.
 
-## Anotado para depois (não é problema do Beta 0)
+## Pesquisa de ecossistema: o que Popfeed e Skylights ensinam
 
-Ponto real, levantado depois de fechar a decisão acima: obra é recurso compartilhado, não possuído por ninguém — isso já era um ponto nomeado antes de qualquer código de AT Protocol existir. String livre resolve o Beta 0 porque só existe uma pessoa testando; quebra assim que duas pessoas divergem no texto pro mesmo filme, ou quando afinidade precisar comparar estantes de verdade.
+Antes de fechar a direção pra identificação de obra, pesquisamos dois apps reais de mídia no AT Protocol e consultamos a rede de verdade (não só documentação secundária) — `com.atproto.identity.resolveHandle`, `plc.directory`, `com.atproto.repo.describeRepo` e `listRecords` contra a conta real `popfeed.social`, mais os lexicons públicos da Skylights (`github.com/Gregoor/skylights`).
 
-A direção mais provável, quando esse beta chegar, **não é reinventar um catalog-service central** — é usar o padrão idiomático do próprio AT Protocol pra referência entre registros: um **strongRef** (par URI+CID, o mesmo mecanismo que um "like" do Bluesky usa pra apontar pro post curtido) em vez de uma string solta. Na prática:
+**Três jeitos diferentes de referenciar uma obra, encontrados na prática:**
 
-- Um record type novo, `social.orbita.work`, publicado não pelo usuário mas pela própria conta de serviço da Órbita (ou futuramente por qualquer AppView que queira publicar catálogo) — um registro por obra, com identidade estável.
-- A mesma lógica de resolução externa já validada em trabalho anterior (TMDB/MusicBrainz/Open Library — busca, normaliza, gera slug estável) é reaproveitável quase sem mudança: só o destino da persistência muda, de uma linha de tabela `works` pra um record `social.orbita.work` publicado.
-- `social.orbita.shelf.item.work` passa a ser um strongRef pra esse registro, não mais uma string — duas pessoas adicionando "Matrix" à estante apontam pro mesmo registro, não pra dois textos parecidos.
+1. **Popfeed duplica tudo** — cada `social.popfeed.feed.listItem` carrega título, gêneros, poster, data de lançamento inteiros, correlacionados só por um `identifiers.tmdbId`/`igdbId` solto. Sem registro canônico.
+2. **Skylights usa referência externa mínima** — `{"ref": "tmdb:m", "value": "603"}` dentro do próprio registro do usuário. Sem duplicar metadado, sem inventar um segundo record type.
+3. **O que a gente tinha planejado** (strongRef pra um `social.orbita.work` publicado por conta de serviço própria) — nenhuma das duas apps reais faz isso.
 
-Não decidir isso agora — só não deixar essa observação se perder antes do beta em que ela importa.
+**Decisão: seguimos o padrão da Skylights**, não o nosso plano antigo. Ele já é quase idêntico à resolução externa que a Órbita original valida (TMDB/MusicBrainz/Open Library, busca → normaliza → identificador estável) — só muda o formato de exposição, virando um par `{provider, id}` dentro do próprio `shelf.item`, em vez de string livre solta ou de um record novo. **Elimina de vez a necessidade de conta de serviço, self-host de PDS próprio, e o record type `social.orbita.work`** — nenhuma dessas três coisas é necessária. Ver detalhe do novo schema proposto abaixo.
 
-### Sobre não hospedar PDS próprio: vale só pros usuários, não necessariamente pra nós
+**Achado extra que valida os princípios do produto, não só a arquitetura:** uma crítica de UX externa ao Popfeed (não afiliada) aponta que o app fica "entre duas cadeiras" — tracker (tipo Trakt) e rede social (tipo Letterboxd) ao mesmo tempo, herdando scroll infinito e lógica de feed do Bluesky de um jeito que atrapalha quem só quer registrar consumo. É exatamente o problema que os princípios 2 e 4 do produto original (sem engajamento algorítmico, sem scroll infinito, hierarquia obra > pessoa) evitam por desenho — validação concreta, não hipotética.
 
-"Não hospedar PDS próprio" (decisão de cima) é sobre não pedir que pessoas migrem de identidade — é o padrão já usado por outros microapps do ecossistema (Frontpage, Smoke Signal, Flashes, WhiteWind: nenhum hospeda PDS pros usuários, todos escrevem Lexicon customizado no PDS que a pessoa já tem, geralmente o da própria Bluesky). Isso não onera a infraestrutura deles de forma desproporcional: escrita é pequena e é a conta da própria pessoa, e leitura/sincronização não bate em PDS nenhum — consome o firehose/relay, que já existe pra rede inteira independente de nós.
+**O que existe no ecossistema e não deveríamos copiar:** `social.popfeed.challenge.*` é gamificação (desafios/metas de consumo) — contraria diretamente o princípio 4 ("sem design viciante"). Também achamos que **nem a própria Popfeed self-hosta a conta de serviço dela** (PDS deles está em `*.host.bsky.network`, infra da própria Bluesky) — reforça que self-hostar não era necessário mesmo antes de descartarmos essa ideia por outro motivo.
 
-Mas quando `social.orbita.work` (o catálogo canônico, seção acima) existir, essa conta de serviço não é de uma pessoa — é infraestrutura nossa, com crescimento que nós controlamos. Faz sentido, nesse momento, self-hostar um PDS só pra essa única conta — lift muito menor que hospedar PDS pra todo mundo, e tira de terceiro exatamente a parte que é responsabilidade nossa de verdade. Não é contradição com a decisão de cima, é o mesmo princípio aplicado com mais precisão: não pedir migração de ninguém, mas também não terceirizar o que é nosso.
+## Identificação de obra — schema revisado (substitui o plano de strongRef)
+
+Rascunho novo, no espírito Skylights, pra quando sairmos do "string livre" do Beta 0:
+
+```json
+"work": {
+  "type": "object",
+  "required": ["provider", "id"],
+  "properties": {
+    "provider": { "type": "string", "knownValues": ["tmdb-movie", "tmdb-tv", "musicbrainz", "open-library"] },
+    "id": { "type": "string" }
+  }
+}
+```
+
+**Pergunta em aberto:** vale já trocar o `workSlug` (string livre) do Beta 0 atual por esse formato agora — já que não exige infra nova nenhuma, só um formato de campo diferente — ou mantemos string livre até o Beta 0 fechar (critério já definido, item 5) e só migramos depois? Não decidido ainda, propositalmente.
