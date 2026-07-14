@@ -54,7 +54,7 @@ Sem nota, sem afinidade, sem constelação, sem tipo de obra — só o gesto de 
 
 5. **Critério de "Beta 0 concluído"** — confirmado: login via OAuth funcionando contra uma conta real, um registro `social.orbita.shelf.item` criado no PDS dessa conta, Tap sincronizando esse registro pra um banco local, e uma página simples listando o que foi sincronizado. Sem UI além disso, sem segundo Lexicon, sem afinidade.
 
-2. **Identificação da obra: string livre, sem validação, neste beta.** Confirmado: `workSlug` é só texto (`"matrix"`), digitado ou fixado no código do teste, sem checar existência, sem impedir que outra pessoa grave `"the-matrix"` pro mesmo filme. Aceito de propósito — ver nota abaixo sobre quando isso deixa de ser aceitável.
+2. **Identificação da obra: migrada pro formato `{provider, id}`.** Substituiu a string livre (`workSlug`) — decisão original aceita como intermediária, revista depois da pesquisa de ecossistema abaixo. Já implementado e validado de ponta a ponta contra o PDS local (`work: {provider: "tmdb-movie", id: "603"}` — o ID real do Matrix na TMDB), incluindo entrega via Tap/webhook com `"live": true`. Ver schema completo em [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json).
 
 ## Pesquisa de ecossistema: o que Popfeed e Skylights ensinam
 
@@ -72,19 +72,21 @@ Antes de fechar a direção pra identificação de obra, pesquisamos dois apps r
 
 **O que existe no ecossistema e não deveríamos copiar:** `social.popfeed.challenge.*` é gamificação (desafios/metas de consumo) — contraria diretamente o princípio 4 ("sem design viciante"). Também achamos que **nem a própria Popfeed self-hosta a conta de serviço dela** (PDS deles está em `*.host.bsky.network`, infra da própria Bluesky) — reforça que self-hostar não era necessário mesmo antes de descartarmos essa ideia por outro motivo.
 
-## Identificação de obra — schema revisado (substitui o plano de strongRef)
+## Identificação de obra — schema revisado (substitui o plano de strongRef), já implementado
 
-Rascunho novo, no espírito Skylights, pra quando sairmos do "string livre" do Beta 0:
+Migrado imediatamente, não adiado — não exigia infra nova, só formato de campo diferente. Seguindo o padrão idiomático confirmado na Skylights (`{"type": "ref", "ref": "#work"}` apontando pra um def local, não objeto inline — verificado contra `rel.json` deles antes de escrever, já que a spec do Lexicon não deixa claro se aninhamento inline sem `ref` é válido):
 
 ```json
+"work": { "type": "ref", "ref": "#work" }
+// ...
 "work": {
   "type": "object",
   "required": ["provider", "id"],
   "properties": {
     "provider": { "type": "string", "knownValues": ["tmdb-movie", "tmdb-tv", "musicbrainz", "open-library"] },
-    "id": { "type": "string" }
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 }
   }
 }
 ```
 
-**Pergunta em aberto:** vale já trocar o `workSlug` (string livre) do Beta 0 atual por esse formato agora — já que não exige infra nova nenhuma, só um formato de campo diferente — ou mantemos string livre até o Beta 0 fechar (critério já definido, item 5) e só migramos depois? Não decidido ainda, propositalmente.
+Os registros antigos no PDS local (`workSlug: "matrix"`, `workSlug: "duna-parte-2"`) ficam pra trás como dado órfão do schema anterior — sandbox é descartável de propósito, sem necessidade de migração.

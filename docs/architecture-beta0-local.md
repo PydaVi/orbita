@@ -86,6 +86,16 @@ Ao escrever um segundo registro (`workSlug: duna-parte-2`) com o Tap já conecta
 
 **`"handle": "handle.invalid"` não é bug.** Nosso handle de teste (`alice.test`) não é um domínio real, então a resolução bidirecional handle↔DID que estudamos (DNS TXT / `.well-known`, contra `alsoKnownAs` no documento DID) não tem como se confirmar — o Tap marca isso honestamente como inválido em vez de fingir que está tudo certo. É a mesma verificação de segurança da spec, funcionando.
 
+## Schema do `work` mudou — repipeline confirmado
+
+Depois da pesquisa de ecossistema (ver `docs/BETA0-PLAN.md`), `workSlug` (string livre) virou `work: {provider, id}` (referência externa mínima, ex.: `{"provider": "tmdb-movie", "id": "603"}`). Reescrevemos um registro novo com o schema atualizado e confirmamos o pipeline inteiro de novo, dessa vez com o Tap já rodando (não precisou de backfill):
+
+```json
+{"id":4,"type":"record","record":{"live":true,"collection":"social.orbita.shelf.item","action":"create","record":{"work":{"id":"603","provider":"tmdb-movie"},"createdAt":"2026-07-14T02:25:47.000Z"}}}
+```
+
+`"live": true` dessa vez — evento ao vivo de verdade, não backfill, confirmando que o pipeline reage a escrita nova em tempo real, não só na primeira descoberta do repositório. Os registros antigos (`workSlug: "matrix"`, `workSlug: "duna-parte-2"`) continuam no PDS local como dado órfão do schema anterior — sandbox descartável, sem necessidade de migração.
+
 Também apareceu um erro periódico (`"failed to enumerate network"`, HTTP 401) — é uma tentativa separada do Tap de enumerar repositórios pré-existentes por coleção, que exige auth que não configuramos; não afeta o firehose ao vivo, que conectou e entregou normalmente.
 
 ## O que ainda falta (não implementado)

@@ -8,18 +8,32 @@
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["workSlug", "createdAt"],
+        "required": ["work", "createdAt"],
         "properties": {
-          "workSlug": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "description": "Identificador textual da obra — sem validação neste beta, ver docs/BETA0-PLAN.md"
+          "work": {
+            "type": "ref",
+            "ref": "#work",
+            "description": "Referência externa mínima à obra — sem duplicar metadado, sem record canônico próprio. Ver docs/BETA0-PLAN.md, seção de pesquisa de ecossistema."
           },
           "createdAt": {
             "type": "string",
             "format": "datetime"
           }
+        }
+      }
+    },
+    "work": {
+      "type": "object",
+      "required": ["provider", "id"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "knownValues": ["tmdb-movie", "tmdb-tv", "musicbrainz", "open-library"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
         }
       }
     }
