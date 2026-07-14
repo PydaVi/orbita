@@ -13,7 +13,7 @@ Sentir o problema mínimo primeiro: autenticar contra uma identidade que não é
 - [x] Lexicon `social.orbita.shelf.item` — [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json)
 - [x] Esqueleto do módulo Go (módulo único) — [`cmd/appview/main.go`](../cmd/appview/main.go). `go 1.26` agora (bump forçado pelo `indigo`, que exige >=1.26 — não é mais `1.25.0` como no commit inicial)
 - [x] OAuth contra uma conta real (`atproto/auth/oauth`) — login completo, ponta a ponta, contra `pydavi.bsky.social` de verdade. Ver saga de rede (WSL2/localhost/IPv6) em [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
-- [ ] Escrita do registro no PDS via sessão autenticada — próximo passo, usar `oauthSess.APIClient().Post(...)` em vez do `curl` manual
+- [x] Escrita do registro no PDS via sessão autenticada — `oauthSess.APIClient().Post(...)` de verdade, contra a conta real. Registro confirmado via `listRecords` no PDS de produção (`agaric.us-west.host.bsky.network`): `at://did:plc:kpsswg4vfyzjvxp577wsqh3t/social.orbita.shelf.item/3mqlbnf4e7m2e` — primeiro dado real da Órbita no AT Protocol
 - [x] PDS de desenvolvimento local — [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs), via `@atproto/dev-env` (`TestNetworkNoAppView`: só PLC + PDS, sem Bsky AppView/Ozone/Postgres)
 - [x] Ciclo manual completo validado via `curl` (criar conta → escrever `shelf.item` → ler de volta) — ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
 - [x] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item` — rodado de verdade, backfill confirmado, ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)

@@ -94,5 +94,5 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("login bem-sucedido: %s", sessData.AccountDID.String())
-	fmt.Fprintf(w, "login OK — DID: %s", sessData.AccountDID.String())
+	http.Redirect(w, r, "/shelf/add", http.StatusFound)
 }

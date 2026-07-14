@@ -19,6 +19,7 @@ func main() {
 		log.Fatal("SESSION_SECRET não definido — gere um com `openssl rand -hex 16`")
 	}
 	setupOAuth(mux, sessionSecret)
+	setupShelf(mux)
 
 	// Recebe os eventos que o Tap entrega depois de filtrar o firehose pela
 	// nossa coleção. Só loga por enquanto — indexar num banco é o próximo

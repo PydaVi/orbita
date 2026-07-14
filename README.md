@@ -25,7 +25,8 @@ No fim, construí pra esse lab um produto que me empolgou tanto que esse aqui é
 
 O que já existe:
 - [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — o primeiro Lexicon, schema do gesto de adicionar uma obra à estante
-- [`cmd/appview/main.go`](cmd/appview/main.go) — servidor Go com `/health` e `/webhook` (recebe eventos do Tap, ainda só loga, não indexa)
+- [`cmd/appview/main.go`](cmd/appview/main.go) + [`oauth.go`](cmd/appview/oauth.go) + [`shelf.go`](cmd/appview/shelf.go) — servidor Go com `/health`, `/webhook`, e **login OAuth real + escrita autenticada de verdade**
+- **Primeiro dado real da Órbita no AT Protocol**: um `social.orbita.shelf.item` escrito via OAuth (PAR/PKCE/DPoP completos, sem atalho) na conta real do autor, confirmado no PDS de produção
 - [`scripts/dev-pds/`](scripts/dev-pds/) — PDS + PLC locais e descartáveis, sem Postgres, sem TLS, pra estudar e testar sem depender de conta real
 - Pipeline completo validado de ponta a ponta — PDS local → Tap → webhook, com backfill de registro pré-existente confirmado — arquitetura documentada em [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
