@@ -96,6 +96,26 @@ Depois da pesquisa de ecossistema (ver `docs/BETA0-PLAN.md`), `workSlug` (string
 
 `"live": true` dessa vez — evento ao vivo de verdade, não backfill, confirmando que o pipeline reage a escrita nova em tempo real, não só na primeira descoberta do repositório. Os registros antigos (`workSlug: "matrix"`, `workSlug: "duna-parte-2"`) continuam no PDS local como dado órfão do schema anterior — sandbox descartável, sem necessidade de migração.
 
+## OAuth real — por que o PDS local não serve pra isso, e a saga de rede pra testar com conta real
+
+### O PDS local nunca ia funcionar aqui, por desenho
+
+O `Resolver` do pacote `atproto/auth/oauth` (`resolver.go`) exige `https://` e proíbe porta explícita em três métodos (`ResolveAuthServerURL`, `ResolveAuthServerMetadata`, `ResolveClientMetadata`) — sem exceção configurável, é lógica fixa no código, não um campo trocável (o tipo é concreto, não interface). Isso não é sobre o `client_id` (que pode ser `http://localhost`, exceção de dev que já usamos) — é sobre o **servidor de autorização em si** nunca poder ser resolvido em HTTP puro com porta. Faz sentido: permitir isso geral abriria uma brecha real de SSRF. Conclusão: login OAuth só dá pra testar contra o **PDS real** — exatamente o papel que a decisão de identidades híbridas já previa pra essa situação.
+
+### A saga pra alcançar o callback de volta (WSL2 + navegador)
+
+Rodar o appview aqui (ambiente do assistente) não bastava — o `127.0.0.1:8092` daqui não é o `127.0.0.1:8092` que o navegador do autor enxerga, mesmo sendo a mesma máquina/WSL2 (confirmado por um teste: `bind: address already in use` provou que a rede *é* compartilhada nesse nível, então o problema estava adiante, entre o WSL2 e o navegador de fato).
+
+Passo a passo do que aconteceu:
+1. `http://127.0.0.1:8092/oauth/callback` como redirect_uri → `ERR_CONNECTION_REFUSED` no navegador, mesmo com o appview rodando no terminal do autor (não só aqui). Teste isolado (`http://127.0.0.1:8092/health` direto, sem OAuth) deu o mesmo erro — confirmando que o problema era puramente de rede, nada a ver com OAuth.
+2. Achado empírico do autor: `http://localhost:8092/health` **funcionava**, `127.0.0.1` não — causa exata não identificada (hipótese: proxy/VPN local com regra de bypass só pro nome "localhost", não pro IP literal).
+3. Trocamos o redirect_uri pra `http://localhost:8092/oauth/callback` → PAR foi **recusado pelo servidor real da Bluesky** (`HTTP 400 invalid_request`) — a spec só aceita as formas literais `127.0.0.1`/`[::1]`, "localhost" como texto não é uma delas, e o servidor валida isso de verdade.
+4. Hipótese seguinte: se "localhost" resolve e "127.0.0.1" não, talvez o ambiente prefira IPv6 — testamos `http://[::1]:8092/oauth/callback`. **Funcionou nos dois lados**: PAR aceito pela Bluesky (forma literal válida) *e* alcançável pelo navegador do autor.
+
+Login completo, ponta a ponta, contra `pydavi.bsky.social` de verdade: `did:plc:kpsswg4vfyzjvxp577wsqh3t` (confirmado batendo com `com.atproto.identity.resolveHandle` contra a API pública da Bluesky).
+
+**Lição pra quem repetir isso em outra máquina:** se `127.0.0.1` não alcançar o callback, tente `[::1]` antes de mexer em configuração de rede do WSL2/Windows (`.wslconfig`, `netsh portproxy`) — pode ser só isso.
+
 Também apareceu um erro periódico (`"failed to enumerate network"`, HTTP 401) — é uma tentativa separada do Tap de enumerar repositórios pré-existentes por coleção, que exige auth que não configuramos; não afeta o firehose ao vivo, que conectou e entregou normalmente.
 
 ## O que ainda falta (não implementado)

@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 )
 
 func main() {
@@ -12,6 +13,12 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if sessionSecret == "" {
+		log.Fatal("SESSION_SECRET não definido — gere um com `openssl rand -hex 16`")
+	}
+	setupOAuth(mux, sessionSecret)
 
 	// Recebe os eventos que o Tap entrega depois de filtrar o firehose pela
 	// nossa coleção. Só loga por enquanto — indexar num banco é o próximo
