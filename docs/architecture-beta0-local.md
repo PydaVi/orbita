@@ -118,11 +118,26 @@ Login completo, ponta a ponta, contra `pydavi.bsky.social` de verdade: `did:plc:
 
 Também apareceu um erro periódico (`"failed to enumerate network"`, HTTP 401) — é uma tentativa separada do Tap de enumerar repositórios pré-existentes por coleção, que exige auth que não configuramos; não afeta o firehose ao vivo, que conectou e entregou normalmente.
 
-## O que ainda falta (não implementado)
+## Escrita real via OAuth — confirmada na rede de produção
+
+`cmd/appview/oauth.go` + `cmd/appview/shelf.go` substituem o `curl` manual: login real (`StartAuthFlow`/`ProcessCallback`, PAR+PKCE+DPoP por dentro da lib) e escrita autenticada (`oauthSess.APIClient().Post(ctx, "com.atproto.repo.createRecord", ...)`). Testado contra a conta real do autor (`pydavi.bsky.social`, não o PDS local — motivo na seção acima), e **confirmado na rede**, não só pela tela de sucesso:
+
+```
+GET .../xrpc/com.atproto.repo.listRecords?repo=did:plc:kpsswg4vfyzjvxp577wsqh3t&collection=social.orbita.shelf.item
+→ at://did:plc:kpsswg4vfyzjvxp577wsqh3t/social.orbita.shelf.item/3mqlbnf4e7m2e
+```
+
+Primeiro dado real da Órbita no AT Protocol — não sandbox, não backfill, escrito pelo nosso próprio código Go.
+
+**Detalhe importante, ainda não resolvido:** esse registro não passou pelo nosso Tap — a instância que temos rodando ainda aponta `TAP_RELAY_URL` pro PDS local (`:2583`), não pro relay de produção real. Pra ver esse registro fluir pro webhook, precisamos de uma segunda instância do Tap com `TAP_RELAY_URL` no padrão (`https://relay1.us-east.bsky.network`, sem configurar nada) — o cenário "Beta 0 de verdade" da tabela acima, documentado mas ainda não testado.
+
+## O que ainda falta
 
 - [x] Rodar o Tap de verdade, apontado pro `:2583` local, e confirmar que ele entrega webhook quando um novo `social.orbita.shelf.item` é escrito
 - [x] `cmd/appview` ganhar um handler `/webhook` que recebe isso — só loga por enquanto, ainda não grava em banco
-- [ ] Trocar o `curl` manual por código Go real (`atproto/auth/oauth` pro login, `atproto/lex`/`atproto/repo` pra montar e assinar o registro)
-- [ ] Banco local (schema mínimo: `account` + a cópia indexada de `shelf.item`, como já descrito em `docs/BETA0-PLAN.md`) — os três eventos acima ainda só vão pro log, não pra uma tabela
+- [x] Trocar o `curl` manual por código Go real — OAuth completo, escrita confirmada na rede real
+- [ ] Tap apontado pro relay real (não o PDS local), confirmando que pega o registro que já existe na conta real do autor
+- [ ] Banco local (schema mínimo: `account` + a cópia indexada de `shelf.item`, como já descrito em `docs/BETA0-PLAN.md`) — os eventos do webhook ainda só vão pro log, não pra uma tabela
+- [ ] Página simples listando o que foi sincronizado
 
 Ver checklist completo e decisões em [`docs/BETA0-PLAN.md`](BETA0-PLAN.md).

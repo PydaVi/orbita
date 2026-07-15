@@ -1,6 +1,6 @@
 # Beta 0 — rascunho de planejamento
 
-**Status:** decisões da primeira rodada fechadas (stack, licença, identidades de teste, critério de conclusão, identificação de obra). Continua sendo um documento vivo — decisão fechada aqui significa "o suficiente pra começar a escrever código", não "impossível de revisitar". Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
+**Status:** 5 de 7 itens do progresso concluídos, incluindo os dois mais arriscados (OAuth real, escrita autenticada confirmada na rede de produção). Faltam só banco local e página de listagem — ver "Progresso" abaixo. Continua sendo um documento vivo. Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
 
 ## Objetivo
 
