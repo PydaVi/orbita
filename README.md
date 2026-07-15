@@ -1,58 +1,58 @@
 # Órbita
 
-> Toda rede social tem um centro. Na maioria, esse centro é você.
-> Aqui, o centro é a obra: o filme, a série, o disco, o livro que você ama.
+> Every social network has a center. For most, that center is you.
+> Here, the center is the work: the movie, the show, the album, the book you love.
 
-Este repositório é o começo de uma AppView da Órbita sobre o **AT Protocol** — o protocolo aberto por trás do Bluesky. Identidade portável via DID, dados no PDS que a própria pessoa já controla, tipos de registro definidos em Lexicon. Sem servidor dono do seu gosto cultural.
+This repository is the beginning of an Órbita AppView on top of the **AT Protocol** — the open protocol behind Bluesky. Portable identity via DID, data in the PDS the person already controls, record types defined in Lexicon. No server owns your cultural taste.
 
-## De onde isso vem
+## Where this comes from
 
-A Órbita nasceu como laboratório de sistemas distribuídos, um produto real, construído para simular problemas de devops/SRE como resiliência de sistemas distribuídos, estado persistente, cache, observabilidade, escala horizontal etc.
+Órbita started as a distributed systems lab, a real product built to work through problems like resilient distributed systems, persistent state, cache, observability, horizontal scaling, and so on.
 
-No fim, construí pra esse lab um produto que me empolgou tanto que esse aqui é a continuação natural: migrar a mesma ideia de produto para uma arquitetura onde ninguém — nem a própria Órbita — é dona dos dados de quem usa. `orbita` nasce já pensado para além do autor: uma AppView pública, construída em aberto, dentro da comunidade do AT Protocol.
+In the end, I built a product for that lab that excited me enough that this is the natural continuation: migrating the same product idea to an architecture where nobody — not even Órbita itself — owns the data of the people who use it. `orbita` is built from day one with more than just its author in mind: a public AppView, built in the open, within the AT Protocol community.
 
-## O que diferencia a Órbita
+## What makes Órbita different
 
-- **O nó central é a obra, não a pessoa.** Capa, título e tipo da obra vêm antes de qualquer nome de usuário.
-- **Sem engajamento algorítmico.** Feed cronológico. Sem "em alta", sem ranking por curtida.
-- **Sem métrica pública de popularidade.** Contagem de seguidores existe só no seu próprio perfil, nunca como dado de status no perfil alheio.
-- **Afinidade não é número, é forma.** A estante de cada pessoa desenha uma constelação; afinidade acontece quando duas constelações se parecem, sem exibir um placar de compatibilidade.
-- **Não é ambiente para criador de conteúdo.** É espaço para comunidade se encontrar pelo que ama de verdade.
+- **The central node is the work, not the person.** Cover, title, and type of the work come before any username.
+- **No algorithmic engagement.** Chronological feed. No "trending," no like-based ranking.
+- **No public popularity metrics.** Follower counts exist only on your own profile, never as public status data on someone else's.
+- **Affinity isn't a number, it's a shape.** Each person's shelf draws a constellation; affinity happens when two constellations resemble each other, with no compatibility score on display.
+- **Not a space for content creators.** It's a space for community to find each other through what they genuinely love.
 
-## Estado atual
+## Current state
 
-**Beta 0 — concluído ✅** (2026-07-15). Ponta a ponta, contra a rede real: login OAuth, escrita autenticada, sincronização via Tap contra o relay de produção, banco local, página de listagem — ver [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), que documenta todo o processo, não só o resultado.
+**Beta 0 — done ✅** (2026-07-15). End to end, against the real network: OAuth login, authenticated write, sync via Tap against the production relay, local database, listing page — see [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), which documents the whole process, not just the outcome.
 
-O que existe:
-- [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — o primeiro Lexicon, schema do gesto de adicionar uma obra à estante
-- [`cmd/appview/`](cmd/appview/) — servidor Go completo: login OAuth real, escrita autenticada (`/shelf/add`), webhook do Tap indexando num banco SQLite local, `/shelf` listando o que foi sincronizado
-- **Primeiro dado real da Órbita no AT Protocol**: um `social.orbita.shelf.item` escrito via OAuth (PAR/PKCE/DPoP completos, sem atalho) na conta real do autor, sincronizado pelo Tap contra o **relay de produção real** (`relay1.us-east.bsky.network`) — mesmo código, mesmo binário que roda contra o sandbox local, só a URL de configuração muda
-- [`scripts/dev-pds/`](scripts/dev-pds/) — PDS + PLC locais e descartáveis, sem Postgres, sem TLS, pra estudar e testar sem depender de conta real
-- Pipeline validado de ponta a ponta duas vezes — sandbox local e rede de produção — arquitetura completa documentada em [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
+What exists:
+- [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — the first Lexicon, the schema for the gesture of adding a work to the shelf
+- [`cmd/appview/`](cmd/appview/) — a complete Go server: real OAuth login, authenticated write (`/shelf/add`), a Tap webhook indexing into a local SQLite database, `/shelf` listing what's been synced
+- **Órbita's first real piece of data on the AT Protocol**: a `social.orbita.shelf.item` written via OAuth (full PAR/PKCE/DPoP, no shortcuts) on the author's real account, synced by Tap against the **real production relay** (`relay1.us-east.bsky.network`) — same code, same binary that runs against the local sandbox, only the config URL changes
+- [`scripts/dev-pds/`](scripts/dev-pds/) — a disposable local PDS + PLC, no Postgres, no TLS, for studying and testing without depending on a real account
+- Pipeline validated end to end twice — local sandbox and production network — full architecture documented in [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-Próximo passo: a definir — ver `docs/BETA0-PLAN.md` pra acompanhar.
+Next step: to be determined — see `docs/BETA0-PLAN.md` for updates.
 
-Isso é um hobby virando ideia, documentado em público. Progresso e decisões saem também no perfil [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) *(em breve)*.
+This is a hobby turning into an idea, documented in public. Progress and decisions also go out on the [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) profile *(coming soon)*.
 
-## Por que AT Protocol
+## Why AT Protocol
 
-Se o servidor da Órbita fechasse hoje, a estante cultural de alguém sumiria junto. O AT Protocol resolve exatamente isso:
+If Órbita's server shut down today, someone's cultural shelf would disappear with it. AT Protocol solves exactly that:
 
-- **DID** — identidade portável, independente de qualquer servidor específico
-- **PDS** — os dados moram num repositório que a própria pessoa controla (o mesmo que já usa no Bluesky, ou um auto-hospedado)
-- **Lexicon** — o formato dos registros (`social.orbita.shelf.item`, `social.orbita.note`, …) é um contrato público, não um detalhe interno de banco de dados
-- **AppView** — a Órbita passa a ser uma lente sobre dados que vivem espalhados pela rede, não a dona deles
+- **DID** — portable identity, independent of any specific server
+- **PDS** — data lives in a repository the person themselves controls (the same one they already use on Bluesky, or a self-hosted one)
+- **Lexicon** — the record format (`social.orbita.shelf.item`, `social.orbita.note`, …) is a public contract, not an internal database detail
+- **AppView** — Órbita becomes a lens over data that lives scattered across the network, not the owner of it
 
-## Licença
+## License
 
-[AGPL-3.0](LICENSE). Mesma escolha do Mastodon, pelo mesmo motivo: a cláusula de uso em rede fecha a brecha que o GPL comum deixa aberta — sem ela, alguém poderia pegar o código, modificar, e operar como serviço hospedado sem nunca precisar devolver as modificações à comunidade, já que quem usa só interage pela rede, nunca recebe uma cópia do software. Aberto pra estudar, usar e contribuir; protegido contra virar produto fechado de terceiro.
+[AGPL-3.0](LICENSE). Same choice as Mastodon, for the same reason: the network-use clause closes the loophole plain GPL leaves open — without it, someone could take the code, modify it, and run it as a hosted service without ever having to give the modifications back to the community, since users only interact over the network and never receive a copy of the software. Open to study, use, and contribute to; protected against becoming someone else's closed product.
 
-## Uso de IA no desenvolvimento
+## AI use in development
 
-Este projeto é desenvolvido com uso ativo de assistentes de IA, como parceiro de pesquisa, implementação e documentação, sob minha direção e revisão em cada decisão. Nenhum princípio de produto, decisão de arquitetura ou linha de código entra aqui sem eu entender e validar o porquê primeiro; é esse o próprio motivo de manter tudo documentado (`docs/BETA0-PLAN.md`, os diagramas de arquitetura) tão de perto — inclusive coisas erradas que assumi e corrigi ao longo do caminho ficam registradas, não escondidas.
+This project is developed with active use of AI assistants, as a research, implementation, and documentation partner, under my direction and review at every decision. No product principle, architecture decision, or line of code goes in here without me understanding and validating the why first; that's the actual reason everything stays documented this closely (`docs/BETA0-PLAN.md`, the architecture diagrams) — including mistakes I made and corrected along the way, which stay on the record instead of being hidden.
 
-Divulgo isso abertamente porque transparência já é um princípio não-negociável da própria Órbita como produto, seria incoerente pedir isso da rede social e esconder isso do processo que a constrói.
+I disclose this openly because transparency is already a non-negotiable principle of Órbita as a product; it would be inconsistent to ask that of the social network and hide it from the process that builds it.
 
-## Contribuindo
+## Contributing
 
-Ainda não há processo formal — o Beta 0 está perto de fechar, mas ainda é trabalho de uma pessoa só. Se a ideia ressoa com você, abra uma issue com pergunta, crítica ou interesse em ajudar. O objetivo continua sendo descobrir, em público, se e como isso vira trabalho de mais gente.
+There's no formal process yet — Beta 0 is close to done, but it's still one person's work. If the idea resonates with you, open an issue with a question, a criticism, or interest in helping. The goal remains finding out, in public, whether and how this becomes more than one person's work.

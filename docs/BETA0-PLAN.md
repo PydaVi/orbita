@@ -1,81 +1,81 @@
-# Beta 0 — rascunho de planejamento
+# Beta 0 — planning draft
 
-**Status: Beta 0 concluído ✅** (2026-07-15). Todos os 7 itens do critério de conclusão prontos e confirmados na rede real, não só em sandbox — ver "Progresso" abaixo. Continua sendo um documento vivo. Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
+**Status: Beta 0 done ✅** (2026-07-15). All 7 items of the completion criteria ready and confirmed on the real network, not just in a sandbox — see "Progress" below. Still a living document. Developed with active AI use under direct review — see "AI use in development" in [`README.md`](../README.md).
 
-## Objetivo
+## Goal
 
-No mesmo espírito de um Beta 0 clássico ("produto antes de infraestrutura"), o objetivo aqui é provar a menor fatia possível da Órbita rodando de ponta a ponta sobre AT Protocol real — antes de qualquer ambição maior (PDS próprio, relay, firehose, múltiplos tipos de registro, federação de verdade entre AppViews).
+In the same spirit as a classic Beta 0 ("product before infrastructure"), the goal here is to prove the smallest possible slice of Órbita running end to end over real AT Protocol — before any bigger ambition (own PDS, relay, firehose, multiple record types, real federation between AppViews).
 
-Sentir o problema mínimo primeiro: autenticar contra uma identidade que não é nossa, escrever um registro num repositório que não controlamos, e ler esse dado de volta.
+Feel the minimal problem first: authenticate against an identity that isn't ours, write a record into a repository we don't control, and read that data back.
 
-## Progresso
+## Progress
 
 - [x] Lexicon `social.orbita.shelf.item` — [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json)
-- [x] Esqueleto do módulo Go (módulo único) — [`cmd/appview/main.go`](../cmd/appview/main.go). `go 1.26` agora (bump forçado pelo `indigo`, que exige >=1.26 — não é mais `1.25.0` como no commit inicial)
-- [x] OAuth contra uma conta real (`atproto/auth/oauth`) — login completo, ponta a ponta, contra `pydavi.bsky.social` de verdade. Ver saga de rede (WSL2/localhost/IPv6) em [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
-- [x] Escrita do registro no PDS via sessão autenticada — `oauthSess.APIClient().Post(...)` de verdade, contra a conta real. Registro confirmado via `listRecords` no PDS de produção (`agaric.us-west.host.bsky.network`): `at://did:plc:kpsswg4vfyzjvxp577wsqh3t/social.orbita.shelf.item/3mqlbnf4e7m2e` — primeiro dado real da Órbita no AT Protocol
-- [x] PDS de desenvolvimento local — [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs), via `@atproto/dev-env` (`TestNetworkNoAppView`: só PLC + PDS, sem Bsky AppView/Ozone/Postgres)
-- [x] Ciclo manual completo validado via `curl` (criar conta → escrever `shelf.item` → ler de volta) — ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
-- [x] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item` — rodado de verdade, backfill confirmado, ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
-- [x] Banco local — [`cmd/appview/db.go`](../cmd/appview/db.go), SQLite puro-Go (`modernc.org/sqlite`, sem CGO), tabela `shelf_items`. [`webhook.go`](../cmd/appview/webhook.go) agora parseia o evento real do Tap e indexa, não só loga
-- [x] Página simples listando o que foi sincronizado — [`cmd/appview/list.go`](../cmd/appview/list.go), `GET /shelf`. Testado de ponta a ponta contra o PDS local: escrita → Tap → webhook → SQLite → página, todos os hops confirmados
-- [x] Tap apontado pro **relay real** (`https://relay1.us-east.bsky.network`, padrão, zero configuração de URL) — confirmado: enumerou repositórios reais pela coleção, achou a conta do autor, fez backfill via CAR do PDS de produção, entregou via webhook. `GET /shelf` mostrando o registro real (`tmdb-movie/603`, `did:plc:kpsswg4vfyzjvxp577wsqh3t`) lado a lado com o do sandbox — mesmo binário, mesmo código, zero mudança, só a URL de configuração
+- [x] Go module skeleton (single module) — [`cmd/appview/main.go`](../cmd/appview/main.go). `go 1.26` now (bump forced by `indigo`, which requires >=1.26 — no longer `1.25.0` like in the initial commit)
+- [x] OAuth against a real account (`atproto/auth/oauth`) — full login, end to end, against `pydavi.bsky.social` for real. See the networking saga (WSL2/localhost/IPv6) in [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
+- [x] Writing the record to the PDS via an authenticated session — `oauthSess.APIClient().Post(...)` for real, against the real account. Record confirmed via `listRecords` on the production PDS (`agaric.us-west.host.bsky.network`): `at://did:plc:kpsswg4vfyzjvxp577wsqh3t/social.orbita.shelf.item/3mqlbnf4e7m2e` — Órbita's first real piece of data on the AT Protocol
+- [x] Local development PDS — [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs), via `@atproto/dev-env` (`TestNetworkNoAppView`: just PLC + PDS, no Bsky AppView/Ozone/Postgres)
+- [x] Full manual cycle validated via `curl` (create account → write `shelf.item` → read it back) — see [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
+- [x] Webhook + Tap consumption, filtered for `social.orbita.shelf.item` — run for real, backfill confirmed, see [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
+- [x] Local database — [`cmd/appview/db.go`](../cmd/appview/db.go), pure-Go SQLite (`modernc.org/sqlite`, no CGO), `shelf_items` table. [`webhook.go`](../cmd/appview/webhook.go) now parses the real Tap event and indexes it, not just logs it
+- [x] Simple page listing what's been synced — [`cmd/appview/list.go`](../cmd/appview/list.go), `GET /shelf`. Tested end to end against the local PDS: write → Tap → webhook → SQLite → page, every hop confirmed
+- [x] Tap pointed at the **real relay** (`https://relay1.us-east.bsky.network`, default, zero URL configuration) — confirmed: it enumerated real repos by collection, found the author's account, backfilled via CAR from the production PDS, delivered via webhook. `GET /shelf` showing the real record (`tmdb-movie/603`, `did:plc:kpsswg4vfyzjvxp577wsqh3t`) side by side with the sandbox one — same binary, same code, zero change, only the config URL
 
-## Onde cada dado mora
+## Where each piece of data lives
 
-Distinção que vale manter fixada em código, não só em conversa: **PDS é a fonte da verdade** (o registro que a pessoa autorou, no repositório dela); **AppView é view derivada, descartável e reconstruível** (nossa cópia indexada, nunca autoritativa — mesmo papel que um cache Redis já cumpre em qualquer backend tradicional, só que agora a "fonte da verdade" também saiu do nosso controle). Mesmo a própria escrita do usuário logado passa pelo Tap antes de aparecer no nosso banco — não existe atalho de gravação direta local, nem pros próprios dados de quem está usando.
+A distinction worth keeping fixed in code, not just in conversation: **the PDS is the source of truth** (the record the person authored, in their own repository); **the AppView is a derived view, disposable and rebuildable** (our indexed copy, never authoritative — the same role a Redis cache already plays in any traditional backend, except now the "source of truth" is also out of our control). Even the logged-in user's own write goes through Tap before it shows up in our database — there's no shortcut for direct local writes, not even for the data of the person currently using it.
 
-## Referência de estudo
+## Study reference
 
-Tutorial oficial **Statusphere** (`atproto.com/guides/statusphere-tutorial`) é a referência mais próxima de um "Beta 0" que a própria documentação do AT Protocol oferece. Arquitetura confirmada (verificada em duas fontes — página do tutorial e repositório de exemplo):
+The official **Statusphere** tutorial (`atproto.com/guides/statusphere-tutorial`) is the closest thing to a "Beta 0" that the AT Protocol documentation itself offers. Architecture confirmed (verified against two sources — the tutorial page and the example repository):
 
-- **OAuth** contra o PDS que a pessoa já tem (não hospedamos PDS próprio neste beta) — escopo de permissão restrito ao Lexicon customizado
-- **Lexicon customizado** — schema do registro, versionado, com codegen de tipos
-- **Sincronização em tempo real** via **Tap** (`github.com/bluesky-social/indigo/cmd/tap`) — ferramenta que assiste ao stream da rede filtrando por coleção e entrega eventos via webhook; é o que substitui consumir Jetstream/firehose na mão neste estágio
-- **Banco local** (SQLite via Kysely, no tutorial de referência) — a AppView só indexa o que já foi sincronizado, nunca consulta o PDS ao vivo numa request de leitura
-- **Frontend mínimo** — só o suficiente pra provar que o dado voltou
+- **OAuth** against the PDS the person already has (we don't host our own PDS in this beta) — permission scope restricted to the custom Lexicon
+- **Custom Lexicon** — versioned record schema, with type codegen
+- **Real-time sync** via **Tap** (`github.com/bluesky-social/indigo/cmd/tap`) — a tool that watches the network stream, filters by collection, and delivers events via webhook; this is what replaces consuming Jetstream/firehose by hand at this stage
+- **Local database** (SQLite via Kysely, in the reference tutorial) — the AppView only indexes what's already been synced, never queries the PDS live on a read request
+- **Minimal frontend** — just enough to prove the data came back
 
-## O que muda em relação ao Statusphere
+## What differs from Statusphere
 
-Statusphere usa um Lexicon só (`xyz.statusphere.status`, um emoji como status). Pra Órbita, o gesto equivalente mais próximo do "gesto fundamental" do produto — a estante sempre foi descrita como a ação mais importante da Órbita — é um primeiro Lexicon próprio: `social.orbita.shelf.item`, já escrito e validado contra exemplos reais (`xyz.statusphere.status`, `app.bsky.feed.like`) em [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json).
+Statusphere uses a single Lexicon (`xyz.statusphere.status`, an emoji as status). For Órbita, the closest equivalent to the product's "fundamental gesture" — the shelf has always been described as Órbita's most important action — is a first Lexicon of our own: `social.orbita.shelf.item`, already written and validated against real examples (`xyz.statusphere.status`, `app.bsky.feed.like`) in [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json).
 
-Sem nota, sem afinidade, sem constelação, sem tipo de obra — só o gesto de adicionar algo à estante.
+No notes, no affinity, no constellation, no work type — just the gesture of adding something to the shelf.
 
-## Decisões já fechadas
+## Decisions already closed
 
-1. **Stack: Go.** Confirmado que não há impedimento técnico — `github.com/bluesky-social/indigo` é o monorepo Go oficial do Bluesky/AT Protocol (o mesmo de onde vem o Tap) e cobre exatamente o que este beta precisa: `atproto/auth/oauth` (cliente OAuth), `atproto/identity` (resolução de DID/handle), `atproto/lexicon` (validação de schema), `atproto/repo` (estrutura de repositório), `atproto/atcrypto` (assinatura/criptografia). Não é um workaround — é a implementação de referência, a mesma que roda a infraestrutura real do Bluesky.
-   - **Risco aceito e documentado, não escondido:** o próprio Indigo se declara em desenvolvimento ativo — "features and software interfaces have not stabilized and may break or be removed". Ou seja: esperar alguma quebra de API ao atualizar dependências, e pinar versão explicitamente desde o primeiro `go.mod`. Mesmo espírito de risco já aceito conscientemente em decisões de dependência anteriores (ex.: rate-gate de API externa, cache fail-open) — nomeado aqui, não descoberto depois.
+1. **Stack: Go.** Confirmed there's no technical blocker — `github.com/bluesky-social/indigo` is the official Go monorepo for Bluesky/AT Protocol (the same one Tap comes from) and covers exactly what this beta needs: `atproto/auth/oauth` (OAuth client), `atproto/identity` (DID/handle resolution), `atproto/lexicon` (schema validation), `atproto/repo` (repository structure), `atproto/atcrypto` (signing/crypto). It's not a workaround — it's the reference implementation, the same one that runs Bluesky's real infrastructure.
+   - **Risk accepted and documented, not hidden:** Indigo itself declares active development — "features and software interfaces have not stabilized and may break or be removed." In other words: expect some API breakage on dependency updates, and pin the version explicitly from the very first `go.mod`. Same spirit of risk already accepted consciously in earlier dependency decisions (e.g. external API rate-gating, fail-open cache) — named here, not discovered later.
 
-3. **Identidades de teste: híbrido.** Dois ambientes, propósitos diferentes:
-   - **PDS de desenvolvimento local — já rodando.** `indigo/cmd/pds` não existe (correção: não é uma ferramenta Go, é suposição errada que eu tinha feito). A ferramenta real é `@atproto/dev-env` (pacote npm do próprio time do Bluesky) — mas o binário publicado (`bin.js`) sobe a rede de teste inteira deles (PDS + Bsky AppView + Ozone + Bsync, exigindo Postgres pro schema do AppView), pesado demais pro que precisamos. Usamos em vez disso a classe `TestNetworkNoAppView`, que sobe só PLC + PDS, sem Postgres — script próprio em [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs). Rápido, descartável, sem rate limit, sem sujar a rede real com registro de teste. Mesmo papel que um Postgres/Redis local cumprem em qualquer backend tradicional.
-   - **Conta(s) reais da Bluesky** para validação periódica de interoperabilidade de verdade — confirmar que um registro `social.orbita.shelf.item` escrito por este código sobrevive num PDS de produção real, não só no ambiente controlado. Tecnicamente possível sem fricção: o protocolo não exige aprovação da Bluesky pra escrever um NSID customizado no repositório de alguém — é exatamente esse o ponto do AT Protocol.
-   - Critério prático: o Beta 0 só conta como validado (item 5) quando passar nos dois ambientes, não só no local.
+3. **Test identities: hybrid.** Two environments, different purposes:
+   - **Local development PDS — already running.** `indigo/cmd/pds` doesn't exist (correction: not a Go tool, a wrong assumption I had made). The real tool is `@atproto/dev-env` (an npm package from the Bluesky team itself) — but the published binary (`bin.js`) boots their entire test network (PDS + Bsky AppView + Ozone + Bsync, requiring Postgres for the AppView schema), too heavy for what we need. We instead use the `TestNetworkNoAppView` class, which only boots PLC + PDS, no Postgres — our own script at [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs). Fast, disposable, no rate limits, no polluting the real network with test records. Same role a local Postgres/Redis plays in any traditional backend.
+   - **Real Bluesky account(s)** for periodic real interoperability validation — confirming that a `social.orbita.shelf.item` record written by this code survives on a real production PDS, not just in the controlled environment. Technically frictionless: the protocol doesn't require Bluesky's approval to write a custom NSID into someone's repository — that's exactly the point of AT Protocol.
+   - Practical criterion: Beta 0 only counts as validated (item 5) once it passes in both environments, not just locally.
 
-4. **Licença: AGPL-3.0.** Mesma escolha do Mastodon, e pelo mesmo motivo específico: a cláusula de uso em rede fecha a brecha que o GPL comum deixa aberto — sem ela, alguém poderia pegar o código, modificar, e operar como serviço hospedado sem nunca precisar distribuir as modificações (usuário só interage pela rede, nunca recebe uma cópia do software). AGPL obriga a disponibilizar o código modificado a quem usa o serviço pela rede, não só a quem recebe uma cópia binária. É a proteção certa contra "alguém fecha isso e vende" sem impedir uso/estudo/fork legítimo.
+4. **License: AGPL-3.0.** Same choice as Mastodon, for the same specific reason: the network-use clause closes the loophole plain GPL leaves open — without it, someone could take the code, modify it, and run it as a hosted service without ever having to distribute the modifications (users only interact over the network, never receive a copy of the software). AGPL requires making modified code available to anyone using the service over the network, not just to whoever receives a binary copy. It's the right protection against "someone closes this and sells it" without blocking legitimate use/study/forking.
 
-5. **Critério de "Beta 0 concluído"** — ✅ **atingido de verdade, na rede real** (2026-07-15): login via OAuth funcionando contra `pydavi.bsky.social`, registro `social.orbita.shelf.item` criado no PDS de produção dessa conta, Tap (apontado pro relay real, não sandbox) sincronizando esse registro pra um banco local via webhook, e `GET /shelf` listando o resultado. Sem UI além disso, sem segundo Lexicon, sem afinidade — exatamente o escopo combinado, nada a mais.
+5. **"Beta 0 done" criterion** — ✅ **actually reached, on the real network** (2026-07-15): OAuth login working against `pydavi.bsky.social`, `social.orbita.shelf.item` record created on that account's production PDS, Tap (pointed at the real relay, not the sandbox) syncing that record into a local database via webhook, and `GET /shelf` listing the result. No UI beyond that, no second Lexicon, no affinity — exactly the agreed scope, nothing more.
 
-2. **Identificação da obra: migrada pro formato `{provider, id}`.** Substituiu a string livre (`workSlug`) — decisão original aceita como intermediária, revista depois da pesquisa de ecossistema abaixo. Já implementado e validado de ponta a ponta contra o PDS local (`work: {provider: "tmdb-movie", id: "603"}` — o ID real do Matrix na TMDB), incluindo entrega via Tap/webhook com `"live": true`. Ver schema completo em [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json).
+2. **Work identification: migrated to the `{provider, id}` format.** Replaced the free string (`workSlug`) — the original decision was accepted as an intermediate step, revisited after the ecosystem research below. Already implemented and validated end to end against the local PDS (`work: {provider: "tmdb-movie", id: "603"}` — the Matrix's real TMDB ID), including delivery via Tap/webhook with `"live": true`. See the full schema in [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json).
 
-## Pesquisa de ecossistema: o que Popfeed e Skylights ensinam
+## Ecosystem research: what Popfeed and Skylights teach
 
-Antes de fechar a direção pra identificação de obra, pesquisamos dois apps reais de mídia no AT Protocol e consultamos a rede de verdade (não só documentação secundária) — `com.atproto.identity.resolveHandle`, `plc.directory`, `com.atproto.repo.describeRepo` e `listRecords` contra a conta real `popfeed.social`, mais os lexicons públicos da Skylights (`github.com/Gregoor/skylights`).
+Before settling on a direction for work identification, we researched two real AT Protocol media apps and queried the real network (not just secondary documentation) — `com.atproto.identity.resolveHandle`, `plc.directory`, `com.atproto.repo.describeRepo`, and `listRecords` against the real `popfeed.social` account, plus Skylights' public lexicons (`github.com/Gregoor/skylights`).
 
-**Três jeitos diferentes de referenciar uma obra, encontrados na prática:**
+**Three different ways of referencing a work, found in practice:**
 
-1. **Popfeed duplica tudo** — cada `social.popfeed.feed.listItem` carrega título, gêneros, poster, data de lançamento inteiros, correlacionados só por um `identifiers.tmdbId`/`igdbId` solto. Sem registro canônico.
-2. **Skylights usa referência externa mínima** — `{"ref": "tmdb:m", "value": "603"}` dentro do próprio registro do usuário. Sem duplicar metadado, sem inventar um segundo record type.
-3. **O que a gente tinha planejado** (strongRef pra um `social.orbita.work` publicado por conta de serviço própria) — nenhuma das duas apps reais faz isso.
+1. **Popfeed duplicates everything** — every `social.popfeed.feed.listItem` carries the full title, genres, poster, and release date, tied together only by a loose `identifiers.tmdbId`/`igdbId`. No canonical record.
+2. **Skylights uses a minimal external reference** — `{"ref": "tmdb:m", "value": "603"}` inside the user's own record. No metadata duplication, no second record type invented.
+3. **What we had planned** (a strongRef to a `social.orbita.work` published by our own service account) — neither real app does this.
 
-**Decisão: seguimos o padrão da Skylights**, não o nosso plano antigo. Ele já é quase idêntico à resolução externa que a Órbita original valida (TMDB/MusicBrainz/Open Library, busca → normaliza → identificador estável) — só muda o formato de exposição, virando um par `{provider, id}` dentro do próprio `shelf.item`, em vez de string livre solta ou de um record novo. **Elimina de vez a necessidade de conta de serviço, self-host de PDS próprio, e o record type `social.orbita.work`** — nenhuma dessas três coisas é necessária. Ver detalhe do novo schema proposto abaixo.
+**Decision: we follow Skylights' pattern**, not our old plan. It's already nearly identical to the external resolution the original Órbita already validates (TMDB/MusicBrainz/Open Library, search → normalize → stable identifier) — only the exposure format changes, becoming a `{provider, id}` pair inside `shelf.item` itself, instead of a loose free string or a new record type. **Removes entirely the need for a service account, self-hosting our own PDS, and the `social.orbita.work` record type** — none of those three things is necessary. See the revised schema proposal below.
 
-**Achado extra que valida os princípios do produto, não só a arquitetura:** uma crítica de UX externa ao Popfeed (não afiliada) aponta que o app fica "entre duas cadeiras" — tracker (tipo Trakt) e rede social (tipo Letterboxd) ao mesmo tempo, herdando scroll infinito e lógica de feed do Bluesky de um jeito que atrapalha quem só quer registrar consumo. É exatamente o problema que os princípios 2 e 4 do produto original (sem engajamento algorítmico, sem scroll infinito, hierarquia obra > pessoa) evitam por desenho — validação concreta, não hipotética.
+**Extra finding that validates the product's principles, not just the architecture:** an external UX critique of Popfeed (unaffiliated) points out that the app is "caught between two chairs" — a tracker (like Trakt) and a social network (like Letterboxd) at the same time, inheriting infinite scroll and Bluesky's feed logic in a way that gets in the way of people who just want to log what they consumed. It's exactly the problem the original product's principles 2 and 4 (no algorithmic engagement, no infinite scroll, work-before-person hierarchy) avoid by design — concrete validation, not a hypothesis.
 
-**O que existe no ecossistema e não deveríamos copiar:** `social.popfeed.challenge.*` é gamificação (desafios/metas de consumo) — contraria diretamente o princípio 4 ("sem design viciante"). Também achamos que **nem a própria Popfeed self-hosta a conta de serviço dela** (PDS deles está em `*.host.bsky.network`, infra da própria Bluesky) — reforça que self-hostar não era necessário mesmo antes de descartarmos essa ideia por outro motivo.
+**What exists in the ecosystem that we shouldn't copy:** `social.popfeed.challenge.*` is gamification (consumption challenges/goals) — directly contradicts principle 4 ("no addictive design"). We also found that **not even Popfeed self-hosts its own service account** (their PDS is at `*.host.bsky.network`, Bluesky's own infra) — reinforces that self-hosting wasn't necessary even before we dropped that idea for a different reason.
 
-## Identificação de obra — schema revisado (substitui o plano de strongRef), já implementado
+## Work identification — revised schema (replaces the strongRef plan), already implemented
 
-Migrado imediatamente, não adiado — não exigia infra nova, só formato de campo diferente. Seguindo o padrão idiomático confirmado na Skylights (`{"type": "ref", "ref": "#work"}` apontando pra um def local, não objeto inline — verificado contra `rel.json` deles antes de escrever, já que a spec do Lexicon não deixa claro se aninhamento inline sem `ref` é válido):
+Migrated immediately, not deferred — it didn't require new infrastructure, just a different field format. Following the idiomatic pattern confirmed in Skylights (`{"type": "ref", "ref": "#work"}` pointing to a local def, not an inline object — verified against their `rel.json` before writing, since the Lexicon spec doesn't make clear whether inline nesting without `ref` is valid):
 
 ```json
 "work": { "type": "ref", "ref": "#work" }
@@ -90,4 +90,4 @@ Migrado imediatamente, não adiado — não exigia infra nova, só formato de ca
 }
 ```
 
-Os registros antigos no PDS local (`workSlug: "matrix"`, `workSlug: "duna-parte-2"`) ficam pra trás como dado órfão do schema anterior — sandbox é descartável de propósito, sem necessidade de migração.
+The old records on the local PDS (`workSlug: "matrix"`, `workSlug: "duna-parte-2"`) are left behind as orphaned data from the previous schema — the sandbox is disposable on purpose, no migration needed.

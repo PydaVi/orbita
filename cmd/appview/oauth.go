@@ -15,23 +15,25 @@ var (
 	cookieStore *sessions.CookieStore
 )
 
-// Checkpoint 1 do plano: registra os handlers e confirma que a URL de
-// redirect é gerada. StartAuthFlow (login) já faz PAR + PKCE + DPoP por
-// dentro — não escrevemos nada disso na mão, só chamamos a lib.
+// Checkpoint 1 of the plan: registers the handlers and confirms the
+// redirect URL gets generated. StartAuthFlow (login) already does PAR +
+// PKCE + DPoP internally — we don't write any of that by hand, just call
+// the lib.
 func setupOAuth(mux *http.ServeMux, sessionSecret string) {
-	// Escopo mínimo: só permissão de criar registro na nossa própria coleção,
-	// nada de acesso à conta inteira.
+	// Minimal scope: only permission to create a record in our own
+	// collection, no access to the whole account.
 	scopes := []string{"atproto", "repo:social.orbita.shelf.item?action=create"}
 
-	// NewLocalhostConfig usa a exceção de desenvolvimento local da spec —
-	// client_id vira um "http://localhost" especial, sem exigir domínio
-	// público nem HTTPS.
-	// "localhost" (testado) foi recusado pelo servidor real da Bluesky —
-	// PAR só aceita as formas literais 127.0.0.1/[::1]. Mas o navegador do
-	// autor só alcança o WSL2 via "localhost", não via 127.0.0.1 — hipótese:
-	// "localhost" resolve primeiro por IPv6 (::1) nesse ambiente, e é o IPv4
-	// (127.0.0.1) especificamente que não atravessa WSL2↔Windows aqui.
-	// Testando [::1], a outra forma literal que a spec aceita.
+	// NewLocalhostConfig uses the spec's local-development exception —
+	// client_id becomes a special "http://localhost", with no public
+	// domain or HTTPS required.
+	// "localhost" (tested) was rejected by Bluesky's real server — PAR
+	// only accepts the literal forms 127.0.0.1/[::1]. But the author's
+	// browser only reaches WSL2 via "localhost", not via 127.0.0.1 —
+	// hypothesis: "localhost" resolves via IPv6 (::1) first in this
+	// environment, and it's specifically IPv4 (127.0.0.1) that doesn't
+	// cross the WSL2↔Windows boundary here. Testing [::1], the other
+	// literal form the spec accepts.
 	config := oauth.NewLocalhostConfig(
 		"http://[::1]:8092/oauth/callback",
 		scopes,
@@ -57,8 +59,8 @@ func handleLoginForm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, `<!doctype html>
 <form method="POST" action="/oauth/login">
-  <label>Handle ou DID: <input name="handle" placeholder="alice.test"></label>
-  <button type="submit">Entrar com AT Protocol</button>
+  <label>Handle or DID: <input name="handle" placeholder="alice.test"></label>
+  <button type="submit">Sign in with AT Protocol</button>
 </form>`)
 }
 
@@ -71,17 +73,17 @@ func handleLoginStart(w http.ResponseWriter, r *http.Request) {
 
 	redirectURL, err := oauthClient.StartAuthFlow(r.Context(), handle)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("falha ao iniciar login: %v", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to start login: %v", err), http.StatusBadRequest)
 		return
 	}
-	log.Printf("login iniciado pra %q, redirecionando pro PDS: %s", handle, redirectURL)
+	log.Printf("login started for %q, redirecting to PDS: %s", handle, redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 func handleCallback(w http.ResponseWriter, r *http.Request) {
 	sessData, err := oauthClient.ProcessCallback(r.Context(), r.URL.Query())
 	if err != nil {
-		http.Error(w, fmt.Sprintf("falha no callback OAuth: %v", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("OAuth callback failed: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -93,6 +95,6 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("login bem-sucedido: %s", sessData.AccountDID.String())
+	log.Printf("login successful: %s", sessData.AccountDID.String())
 	http.Redirect(w, r, "/shelf/add", http.StatusFound)
 }

@@ -8,9 +8,9 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Substitui o curl manual: escreve social.orbita.shelf.item de verdade,
-// autenticado via sessão OAuth (DPoP, PAR, PKCE já resolvidos pela lib
-// no login — aqui só reaproveitamos a sessão salva).
+// Replaces the manual curl: writes a real social.orbita.shelf.item,
+// authenticated via the OAuth session (DPoP, PAR, PKCE already resolved
+// by the lib at login — here we just reuse the saved session).
 func setupShelf(mux *http.ServeMux) {
 	mux.HandleFunc("GET /shelf/add", handleShelfAddForm)
 	mux.HandleFunc("POST /shelf/add", handleShelfAdd)
@@ -36,16 +36,16 @@ func currentSessionDID(r *http.Request) (*syntax.DID, string) {
 func handleShelfAddForm(w http.ResponseWriter, r *http.Request) {
 	did, _ := currentSessionDID(r)
 	if did == nil {
-		http.Error(w, "não autenticado — faça login em /oauth/login primeiro", http.StatusUnauthorized)
+		http.Error(w, "not authenticated — sign in at /oauth/login first", http.StatusUnauthorized)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!doctype html>
-<p>Logado como %s</p>
+<p>Signed in as %s</p>
 <form method="POST" action="/shelf/add">
   <label>Provider: <input name="provider" value="tmdb-movie"></label>
-  <label>ID (ex: 603 = Matrix na TMDB): <input name="id" placeholder="603"></label>
-  <button type="submit">Adicionar à estante</button>
+  <label>ID (e.g. 603 = The Matrix on TMDB): <input name="id" placeholder="603"></label>
+  <button type="submit">Add to shelf</button>
 </form>`, did.String())
 }
 
@@ -53,13 +53,13 @@ func handleShelfAdd(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	did, sessionID := currentSessionDID(r)
 	if did == nil {
-		http.Error(w, "não autenticado", http.StatusUnauthorized)
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
 		return
 	}
 
 	oauthSess, err := oauthClient.ResumeSession(ctx, *did, sessionID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("sessão inválida, faça login de novo: %v", err), http.StatusUnauthorized)
+		http.Error(w, fmt.Sprintf("invalid session, please sign in again: %v", err), http.StatusUnauthorized)
 		return
 	}
 
@@ -84,11 +84,11 @@ func handleShelfAdd(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	log.Printf("escrevendo shelf.item via OAuth (DPoP): provider=%s id=%s", provider, workID)
+	log.Printf("writing shelf.item via OAuth (DPoP): provider=%s id=%s", provider, workID)
 	if err := c.Post(ctx, "com.atproto.repo.createRecord", body, nil); err != nil {
-		http.Error(w, fmt.Sprintf("falha ao escrever registro: %v", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to write record: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	fmt.Fprintf(w, "adicionado à estante: %s/%s — confira no seu PDS real", provider, workID)
+	fmt.Fprintf(w, "added to shelf: %s/%s — check your real PDS", provider, workID)
 }

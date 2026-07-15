@@ -20,15 +20,15 @@ func main() {
 
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if sessionSecret == "" {
-		log.Fatal("SESSION_SECRET não definido — gere um com `openssl rand -hex 16`")
+		log.Fatal("SESSION_SECRET not set — generate one with `openssl rand -hex 16`")
 	}
 	setupOAuth(mux, sessionSecret)
 	setupShelf(mux)
 	setupWebhook(mux, db)
 	setupList(mux, db)
 
-	addr := ":8092" // 8000 já é do api-gateway de comum, rodando na mesma máquina
-	log.Printf("orbita appview ouvindo em %s", addr)
+	addr := ":8092" // 8000 is already taken by comum's api-gateway, running on the same machine
+	log.Printf("orbita appview listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
 	}

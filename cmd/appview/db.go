@@ -7,10 +7,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Banco local: só a cópia indexada do que o webhook do Tap entrega.
-// PDS é a fonte da verdade (ver docs/BETA0-PLAN.md, "Onde cada dado mora") —
-// esse arquivo pode ser apagado e reconstruído do zero replayando o Tap,
-// nunca é o único lugar onde um dado existe.
+// Local database: just the indexed copy of what the Tap webhook delivers.
+// The PDS is the source of truth (see docs/BETA0-PLAN.md, "Where each
+// piece of data lives") — this file can be deleted and rebuilt from
+// scratch by replaying Tap, it's never the only place a piece of data
+// exists.
 const schema = `
 CREATE TABLE IF NOT EXISTS shelf_items (
 	uri        TEXT PRIMARY KEY,
@@ -26,10 +27,10 @@ CREATE TABLE IF NOT EXISTS shelf_items (
 func openDB(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		return nil, fmt.Errorf("abrindo banco: %w", err)
+		return nil, fmt.Errorf("opening database: %w", err)
 	}
 	if _, err := db.Exec(schema); err != nil {
-		return nil, fmt.Errorf("criando schema: %w", err)
+		return nil, fmt.Errorf("creating schema: %w", err)
 	}
 	return db, nil
 }

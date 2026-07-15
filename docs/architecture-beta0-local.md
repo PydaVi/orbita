@@ -1,32 +1,33 @@
-# Arquitetura do Beta 0 — ambiente local
+# Beta 0 architecture — local environment
 
-> Documento didático: explica como as peças se encaixam no ambiente de desenvolvimento local, não é uma decisão nova (as decisões já estão em `docs/BETA0-PLAN.md`). Escrito depois de validar cada hop na mão, via `curl`, não só na teoria.
+> Educational document: explains how the pieces fit together in the local development environment, not a new decision (decisions already live in `docs/BETA0-PLAN.md`). Written after validating each hop by hand, via `curl`, not just in theory.
 
-## Visão geral — do PDS local até o nosso appview
+## Overview — from the local PDS to our appview
 
 ```
 ┌──────────────────────────────────────────┐
-│  scripts/dev-pds/run.mjs (processo Node)  │
+│  scripts/dev-pds/run.mjs (Node process)   │
 │                                            │
 │   ┌──────────┐        ┌────────────────┐ │
 │   │   PLC    │        │      PDS       │ │
 │   │ :33195   │◄───────┤     :2583      │ │
-│   │ (fake,   │  DID   │  (@atproto/pds │ │
-│   │ em       │  ops   │   real, mesmo  │ │
-│   │ memória) │        │   código do    │ │
-│   └──────────┘        │   Bluesky)     │ │
+│   │ (fake,   │  DID   │  (real         │ │
+│   │ in       │  ops   │   @atproto/pds,│ │
+│   │ memory)  │        │   same code as │ │
+│   └──────────┘        │   Bluesky's)   │ │
 │                        └───────┬────────┘ │
 └────────────────────────────────┼──────────┘
-                                  │ WebSocket cru
+                                  │ raw WebSocket
                                   │ com.atproto.sync.subscribeRepos
                                   ▼
                         ┌──────────────────┐
                         │    Tap (local)    │
-                        │  aponta pra :2583  │
-                        │  em vez do relay   │
-                        │  de produção real  │
+                        │  points at :2583   │
+                        │  instead of the    │
+                        │  real production   │
+                        │  relay              │
                         │                    │
-                        │  filtra:           │
+                        │  filters:          │
                         │  social.orbita.    │
                         │  shelf.item        │
                         └─────────┬──────────┘
@@ -34,47 +35,47 @@
                                   ▼
                         ┌──────────────────┐
                         │  cmd/appview (Go)  │
-                        │  handler /webhook  │
-                        │  → banco local     │
+                        │  /webhook handler  │
+                        │  → local database   │
                         └──────────────────┘
 ```
 
-## Por que isso funciona sem relay nenhum
+## Why this works without any relay
 
-Um relay de verdade agrega o firehose de muitos PDSes e re-expõe isso como um stream único. O Tap não distingue relay de PDS individual — o código (`cmd/tap/firehose.go`) pega a URL configurada, troca o esquema por `ws`/`wss`, e gruda `xrpc/com.atproto.sync.subscribeRepos` nela, sempre. Como todo PDS já expõe esse mesmo path (é o firehose bruto dele, antes de qualquer agregação), apontar o Tap direto pro nosso PDS local funciona — é o caso degenerado onde "a rede inteira" e "uma fonte só" coincidem, porque só existe um PDS no nosso sandbox.
+A real relay aggregates the firehose of many PDSes and re-exposes it as a single stream. Tap doesn't distinguish a relay from an individual PDS — the code (`cmd/tap/firehose.go`) takes the configured URL, swaps the scheme for `ws`/`wss`, and appends `xrpc/com.atproto.sync.subscribeRepos` to it, always. Since every PDS already exposes that same path (it's its raw firehose, before any aggregation), pointing Tap straight at our local PDS works — it's the degenerate case where "the whole network" and "a single source" coincide, because there's only one PDS in our sandbox.
 
-**Consequência importante:** o mesmo binário do Tap, sem nenhuma mudança de código, serve pros dois cenários — só muda a URL de configuração:
+**Important consequence:** the same Tap binary, with no code change at all, serves both scenarios — only the config URL changes:
 
-| Cenário | URL do Tap | O que ele vê |
+| Scenario | Tap URL | What it sees |
 |---|---|---|
-| Dev local (este documento) | `http://localhost:2583` (nosso PDS) | só os registros que nós mesmos criamos no sandbox |
-| Beta 0 "de verdade" (conta real da Bluesky) | `https://relay1.us-east.bsky.network` (padrão, sem configurar nada) | qualquer registro `social.orbita.shelf.item` escrito por qualquer conta real da rede |
+| Local dev (this document) | `http://localhost:2583` (our PDS) | only the records we ourselves created in the sandbox |
+| Real Beta 0 (real Bluesky account) | `https://relay1.us-east.bsky.network` (default, nothing configured) | any `social.orbita.shelf.item` record written by any real account on the network |
 
-## O que já validamos na mão (sem Go, sem Tap ainda)
+## What we already validated by hand (no Go, no Tap yet)
 
-Sequência real, executada via `curl` contra o PDS local:
+Real sequence, run via `curl` against the local PDS:
 
-1. `POST /xrpc/com.atproto.server.createAccount` → criou `did:plc:nuftb5ux5jsmfsitowhsu4ab`, com documento DID completo (`alsoKnownAs`, `verificationMethod`, `service` apontando pro `:2583`)
-2. Token de acesso recebido tem header `{"typ":"at+jwt","alg":"HS256"}` — confirmando a domain-separation da spec de XRPC
-3. `POST /xrpc/com.atproto.repo.createRecord` (`collection: social.orbita.shelf.item`) → devolveu `uri` (`at://did:plc:.../social.orbita.shelf.item/3mqgdrhodjk2i`) e `cid` — o par que vira strongRef quando outro registro precisar apontar pra este
-4. `GET /xrpc/com.atproto.repo.getRecord` → leu o mesmo registro de volta, intacto
+1. `POST /xrpc/com.atproto.server.createAccount` → created `did:plc:nuftb5ux5jsmfsitowhsu4ab`, with a full DID document (`alsoKnownAs`, `verificationMethod`, `service` pointing at `:2583`)
+2. The access token received has header `{"typ":"at+jwt","alg":"HS256"}` — confirming the domain separation from the XRPC spec
+3. `POST /xrpc/com.atproto.repo.createRecord` (`collection: social.orbita.shelf.item`) → returned `uri` (`at://did:plc:.../social.orbita.shelf.item/3mqgdrhodjk2i`) and `cid` — the pair that becomes a strongRef whenever another record needs to point at this one
+4. `GET /xrpc/com.atproto.repo.getRecord` → read the same record back, intact
 
-Detalhe registrado durante o teste: a resposta trouxe `"validationStatus": "unknown"` — o PDS aceita qualquer NSID sem validar contra o Lexicon, porque não tem de onde saber que o nosso schema existe. Validação de schema é responsabilidade do lado cliente, não do servidor.
+Detail noted during the test: the response carried `"validationStatus": "unknown"` — the PDS accepts any NSID without validating it against the Lexicon, because it has no way to know our schema exists. Schema validation is the client's responsibility, not the server's.
 
-## Pipeline validado de ponta a ponta
+## Pipeline validated end to end
 
-Rodamos o Tap de verdade (binário compilado via `go install github.com/bluesky-social/indigo/cmd/tap`), configurado assim:
+We ran the real Tap (binary built via `go install github.com/bluesky-social/indigo/cmd/tap`), configured like this:
 
 ```
 TAP_PLC_URL=http://localhost:33195
-TAP_RELAY_URL=http://localhost:2583        # nosso PDS local, não o relay real
+TAP_RELAY_URL=http://localhost:2583        # our local PDS, not the real relay
 TAP_SIGNAL_COLLECTION=social.orbita.shelf.item
 TAP_COLLECTION_FILTERS=social.orbita.shelf.item
 TAP_WEBHOOK_URL=http://localhost:8092/webhook
 TAP_NO_REPLAY=true
 ```
 
-Ao escrever um segundo registro (`workSlug: duna-parte-2`) com o Tap já conectado, o log mostrou o mecanismo de **backfill** de verdade: `"fetching repo from PDS"` → `"parsing repo CAR"` → `"iterating repo records"`. O Tap não entregou só o evento novo — foi buscar o repositório inteiro (exportado em CAR) porque essa era a primeira vez que ele via esse DID, e reprocessou tudo. Resultado: nosso `cmd/appview` recebeu **três** eventos no `/webhook`, não um:
+Writing a second record (`workSlug: duna-parte-2`) with Tap already connected, the log showed the real **backfill** mechanism at work: `"fetching repo from PDS"` → `"parsing repo CAR"` → `"iterating repo records"`. Tap didn't just deliver the new event — it went and fetched the whole repository (exported as a CAR) because this was the first time it saw this DID, and reprocessed everything. Result: our `cmd/appview` received **three** events on `/webhook`, not one:
 
 ```json
 {"id":1,"type":"identity","identity":{"did":"did:plc:...","handle":"handle.invalid","is_active":true,"status":"active"}}
@@ -82,64 +83,64 @@ Ao escrever um segundo registro (`workSlug: duna-parte-2`) com o Tap já conecta
 {"id":3,"type":"record","record":{"collection":"social.orbita.shelf.item","action":"create","record":{"workSlug":"duna-parte-2",...}}}
 ```
 
-`id:2` é o registro `matrix`, escrito **antes** do Tap sequer existir — veio só por causa do backfill.
+`id:2` is the `matrix` record, written **before** Tap even existed — it only came through because of the backfill.
 
-**`"handle": "handle.invalid"` não é bug.** Nosso handle de teste (`alice.test`) não é um domínio real, então a resolução bidirecional handle↔DID que estudamos (DNS TXT / `.well-known`, contra `alsoKnownAs` no documento DID) não tem como se confirmar — o Tap marca isso honestamente como inválido em vez de fingir que está tudo certo. É a mesma verificação de segurança da spec, funcionando.
+**`"handle": "handle.invalid"` is not a bug.** Our test handle (`alice.test`) isn't a real domain, so the bidirectional handle↔DID resolution we studied (DNS TXT / `.well-known`, against `alsoKnownAs` in the DID document) has no way to confirm it — Tap honestly marks it invalid instead of pretending everything's fine. It's the same security check from the spec, working.
 
-## Schema do `work` mudou — repipeline confirmado
+## The `work` schema changed — repipeline confirmed
 
-Depois da pesquisa de ecossistema (ver `docs/BETA0-PLAN.md`), `workSlug` (string livre) virou `work: {provider, id}` (referência externa mínima, ex.: `{"provider": "tmdb-movie", "id": "603"}`). Reescrevemos um registro novo com o schema atualizado e confirmamos o pipeline inteiro de novo, dessa vez com o Tap já rodando (não precisou de backfill):
+After the ecosystem research (see `docs/BETA0-PLAN.md`), `workSlug` (free string) became `work: {provider, id}` (minimal external reference, e.g. `{"provider": "tmdb-movie", "id": "603"}`). We wrote a new record with the updated schema and confirmed the whole pipeline again, this time with Tap already running (no backfill needed):
 
 ```json
 {"id":4,"type":"record","record":{"live":true,"collection":"social.orbita.shelf.item","action":"create","record":{"work":{"id":"603","provider":"tmdb-movie"},"createdAt":"2026-07-14T02:25:47.000Z"}}}
 ```
 
-`"live": true` dessa vez — evento ao vivo de verdade, não backfill, confirmando que o pipeline reage a escrita nova em tempo real, não só na primeira descoberta do repositório. Os registros antigos (`workSlug: "matrix"`, `workSlug: "duna-parte-2"`) continuam no PDS local como dado órfão do schema anterior — sandbox descartável, sem necessidade de migração.
+`"live": true` this time — a genuine live event, not a backfill, confirming that the pipeline reacts to new writes in real time, not just on first discovery of the repository. The old records (`workSlug: "matrix"`, `workSlug: "duna-parte-2"`) remain on the local PDS as orphaned data from the previous schema — the sandbox is disposable, no migration needed.
 
-## OAuth real — por que o PDS local não serve pra isso, e a saga de rede pra testar com conta real
+## Real OAuth — why the local PDS doesn't work for this, and the networking saga to test with a real account
 
-### O PDS local nunca ia funcionar aqui, por desenho
+### The local PDS was never going to work here, by design
 
-O `Resolver` do pacote `atproto/auth/oauth` (`resolver.go`) exige `https://` e proíbe porta explícita em três métodos (`ResolveAuthServerURL`, `ResolveAuthServerMetadata`, `ResolveClientMetadata`) — sem exceção configurável, é lógica fixa no código, não um campo trocável (o tipo é concreto, não interface). Isso não é sobre o `client_id` (que pode ser `http://localhost`, exceção de dev que já usamos) — é sobre o **servidor de autorização em si** nunca poder ser resolvido em HTTP puro com porta. Faz sentido: permitir isso geral abriria uma brecha real de SSRF. Conclusão: login OAuth só dá pra testar contra o **PDS real** — exatamente o papel que a decisão de identidades híbridas já previa pra essa situação.
+The `Resolver` in the `atproto/auth/oauth` package (`resolver.go`) requires `https://` and forbids an explicit port in three methods (`ResolveAuthServerURL`, `ResolveAuthServerMetadata`, `ResolveClientMetadata`) — no configurable exception, it's fixed logic in the code, not a swappable field (the type is concrete, not an interface). This isn't about the `client_id` (which can be `http://localhost`, the dev exception we already use) — it's about the **authorization server itself** never being resolvable over plain HTTP with a port. Makes sense: allowing that in general would open a real SSRF hole. Conclusion: OAuth login can only be tested against a **real PDS** — exactly the role the hybrid-identities decision already anticipated for this situation.
 
-### A saga pra alcançar o callback de volta (WSL2 + navegador)
+### The saga to reach the callback (WSL2 + browser)
 
-Rodar o appview aqui (ambiente do assistente) não bastava — o `127.0.0.1:8092` daqui não é o `127.0.0.1:8092` que o navegador do autor enxerga, mesmo sendo a mesma máquina/WSL2 (confirmado por um teste: `bind: address already in use` provou que a rede *é* compartilhada nesse nível, então o problema estava adiante, entre o WSL2 e o navegador de fato).
+Running the appview here (the assistant's environment) wasn't enough — the `127.0.0.1:8092` here isn't the `127.0.0.1:8092` the author's browser sees, even on the same machine/WSL2 (confirmed by a test: `bind: address already in use` proved the network *is* shared at that level, so the problem was further along, between WSL2 and the browser itself).
 
-Passo a passo do que aconteceu:
-1. `http://127.0.0.1:8092/oauth/callback` como redirect_uri → `ERR_CONNECTION_REFUSED` no navegador, mesmo com o appview rodando no terminal do autor (não só aqui). Teste isolado (`http://127.0.0.1:8092/health` direto, sem OAuth) deu o mesmo erro — confirmando que o problema era puramente de rede, nada a ver com OAuth.
-2. Achado empírico do autor: `http://localhost:8092/health` **funcionava**, `127.0.0.1` não — causa exata não identificada (hipótese: proxy/VPN local com regra de bypass só pro nome "localhost", não pro IP literal).
-3. Trocamos o redirect_uri pra `http://localhost:8092/oauth/callback` → PAR foi **recusado pelo servidor real da Bluesky** (`HTTP 400 invalid_request`) — a spec só aceita as formas literais `127.0.0.1`/`[::1]`, "localhost" como texto não é uma delas, e o servidor валida isso de verdade.
-4. Hipótese seguinte: se "localhost" resolve e "127.0.0.1" não, talvez o ambiente prefira IPv6 — testamos `http://[::1]:8092/oauth/callback`. **Funcionou nos dois lados**: PAR aceito pela Bluesky (forma literal válida) *e* alcançável pelo navegador do autor.
+Step by step of what happened:
+1. `http://127.0.0.1:8092/oauth/callback` as the redirect_uri → `ERR_CONNECTION_REFUSED` in the browser, even with the appview running in the author's own terminal (not just here). An isolated test (`http://127.0.0.1:8092/health` directly, no OAuth) gave the same error — confirming the problem was purely networking, nothing to do with OAuth.
+2. The author's empirical finding: `http://localhost:8092/health` **worked**, `127.0.0.1` didn't — exact cause not identified (hypothesis: a local proxy/VPN with a bypass rule for the name "localhost" but not the literal IP).
+3. We switched the redirect_uri to `http://localhost:8092/oauth/callback` → PAR was **rejected by Bluesky's real server** (`HTTP 400 invalid_request`) — the spec only accepts the literal forms `127.0.0.1`/`[::1]`, "localhost" as text isn't one of them, and the server genuinely validates this.
+4. Next hypothesis: if "localhost" resolves and "127.0.0.1" doesn't, maybe the environment prefers IPv6 — we tried `http://[::1]:8092/oauth/callback`. **Worked on both sides**: PAR accepted by Bluesky (a valid literal form) *and* reachable by the author's browser.
 
-Login completo, ponta a ponta, contra `pydavi.bsky.social` de verdade: `did:plc:kpsswg4vfyzjvxp577wsqh3t` (confirmado batendo com `com.atproto.identity.resolveHandle` contra a API pública da Bluesky).
+Full login, end to end, against `pydavi.bsky.social` for real: `did:plc:kpsswg4vfyzjvxp577wsqh3t` (confirmed matching `com.atproto.identity.resolveHandle` against Bluesky's public API).
 
-**Lição pra quem repetir isso em outra máquina:** se `127.0.0.1` não alcançar o callback, tente `[::1]` antes de mexer em configuração de rede do WSL2/Windows (`.wslconfig`, `netsh portproxy`) — pode ser só isso.
+**Lesson for anyone repeating this on another machine:** if `127.0.0.1` can't reach the callback, try `[::1]` before touching WSL2/Windows network configuration (`.wslconfig`, `netsh portproxy`) — it might be just that.
 
-Também apareceu um erro periódico (`"failed to enumerate network"`, HTTP 401) — é uma tentativa separada do Tap de enumerar repositórios pré-existentes por coleção, que exige auth que não configuramos; não afeta o firehose ao vivo, que conectou e entregou normalmente.
+A periodic error also showed up (`"failed to enumerate network"`, HTTP 401) — a separate attempt by Tap to enumerate pre-existing repos by collection, which requires auth we hadn't configured; it doesn't affect the live firehose, which connected and delivered normally.
 
-## Escrita real via OAuth — confirmada na rede de produção
+## Real write via OAuth — confirmed on the production network
 
-`cmd/appview/oauth.go` + `cmd/appview/shelf.go` substituem o `curl` manual: login real (`StartAuthFlow`/`ProcessCallback`, PAR+PKCE+DPoP por dentro da lib) e escrita autenticada (`oauthSess.APIClient().Post(ctx, "com.atproto.repo.createRecord", ...)`). Testado contra a conta real do autor (`pydavi.bsky.social`, não o PDS local — motivo na seção acima), e **confirmado na rede**, não só pela tela de sucesso:
+`cmd/appview/oauth.go` + `cmd/appview/shelf.go` replace the manual `curl`: real login (`StartAuthFlow`/`ProcessCallback`, PAR+PKCE+DPoP handled inside the library) and authenticated write (`oauthSess.APIClient().Post(ctx, "com.atproto.repo.createRecord", ...)`). Tested against the author's real account (`pydavi.bsky.social`, not the local PDS — reason in the section above), and **confirmed on the network**, not just by the success screen:
 
 ```
 GET .../xrpc/com.atproto.repo.listRecords?repo=did:plc:kpsswg4vfyzjvxp577wsqh3t&collection=social.orbita.shelf.item
 → at://did:plc:kpsswg4vfyzjvxp577wsqh3t/social.orbita.shelf.item/3mqlbnf4e7m2e
 ```
 
-Primeiro dado real da Órbita no AT Protocol — não sandbox, não backfill, escrito pelo nosso próprio código Go.
+Órbita's first real piece of data on the AT Protocol — not sandbox, not backfill, written by our own Go code.
 
-## Banco local e listagem — pipeline completo confirmado no sandbox
+## Local database and listing — full pipeline confirmed in the sandbox
 
-`cmd/appview/db.go` (SQLite puro-Go, `modernc.org/sqlite`, tabela `shelf_items`) + `webhook.go` reescrito pra parsear o evento real do Tap (`type: "record"`, `action: "create"`, coleção `social.orbita.shelf.item`) e indexar, em vez de só logar. `list.go` expõe `GET /shelf`, lendo direto do banco.
+`cmd/appview/db.go` (pure-Go SQLite, `modernc.org/sqlite`, `shelf_items` table) + `webhook.go` rewritten to parse the real Tap event (`type: "record"`, `action: "create"`, collection `social.orbita.shelf.item`) and index it, instead of just logging it. `list.go` exposes `GET /shelf`, reading straight from the database.
 
-Testado de ponta a ponta contra o PDS local (registro novo, TMDB tv id `1396` — Breaking Bad): escrita → Tap (já rastreando o DID de teste) → webhook → `INSERT` no SQLite → `GET /shelf` mostrando o item, tudo no mesmo ciclo, sem intervenção manual em nenhum hop intermediário.
+Tested end to end against the local PDS (a new record, TMDB tv id `1396` — Breaking Bad): write → Tap (already tracking the test DID) → webhook → `INSERT` into SQLite → `GET /shelf` showing the item, all in the same cycle, no manual intervention at any intermediate hop.
 
-## Tap contra o relay real — o último item, confirmado
+## Tap against the real relay — the last item, confirmed
 
-Subimos uma segunda instância do Tap, **sem configurar `TAP_RELAY_URL` nem `TAP_PLC_URL`** — os defaults já são o relay de produção (`https://relay1.us-east.bsky.network`) e o `plc.directory` real. Só `TAP_SIGNAL_COLLECTION`, `TAP_COLLECTION_FILTERS` e `TAP_WEBHOOK_URL` (apontado pro mesmo `:8092`), mais `TAP_BIND` diferente pra não colidir com a instância local.
+We started a second Tap instance, **without configuring `TAP_RELAY_URL` or `TAP_PLC_URL`** — the defaults are already the production relay (`https://relay1.us-east.bsky.network`) and the real `plc.directory`. Only `TAP_SIGNAL_COLLECTION`, `TAP_COLLECTION_FILTERS`, and `TAP_WEBHOOK_URL` (pointed at the same `:8092`), plus a different `TAP_BIND` to avoid colliding with the local instance.
 
-O log mostrou algo que a instância local não conseguiu (lá, a "enumeração" falhava com 401 — nosso PLC fake não implementa esse endpoint): contra a rede real, a enumeração **funcionou**:
+The log showed something the local instance couldn't do (there, "enumeration" failed with 401 — our fake PLC doesn't implement that endpoint): against the real network, enumeration **worked**:
 
 ```
 "enumerated repos by collection batch" collection=social.orbita.shelf.item count=1
@@ -148,22 +149,22 @@ O log mostrou algo que a instância local não conseguiu (lá, a "enumeração" 
 "fetching repo from PDS" pds=https://agaric.us-west.host.bsky.network
 ```
 
-Achou a conta real do autor (a única com registro na nossa coleção, contagem 1), buscou o repositório de verdade no PDS de produção, fez backfill — sem precisar de nenhuma escrita nova. `GET /shelf` passou a mostrar os dois registros lado a lado, sandbox e produção:
+Found the author's real account (the only one with a record in our collection, count 1), fetched the real repository from the production PDS, ran a backfill — no new write needed. `GET /shelf` started showing both records side by side, sandbox and production:
 
 ```
-tmdb-tv/1396    — did:plc:nuftb5ux5jsmfsitowhsu4ab   (sandbox local)
-tmdb-movie/603  — did:plc:kpsswg4vfyzjvxp577wsqh3t   (rede real, pydavi.bsky.social)
+tmdb-tv/1396    — did:plc:nuftb5ux5jsmfsitowhsu4ab   (local sandbox)
+tmdb-movie/603  — did:plc:kpsswg4vfyzjvxp577wsqh3t   (real network, pydavi.bsky.social)
 ```
 
-**Mesmo binário, mesmo código Go, zero mudança de lógica** — só a URL de configuração diferenciou "brincar no sandbox" de "funcionar de verdade contra a rede inteira do Bluesky". É a prova mais concreta que temos de que o desenho (AppView como view derivada, reconstruível, nunca dona do dado) funciona igual nos dois mundos.
+**Same binary, same Go code, zero change in logic** — only the config URL told apart "playing in the sandbox" from "working for real against the whole Bluesky network." It's the most concrete proof we have that the design (AppView as a derived, rebuildable view, never owning the data) works the same way in both worlds.
 
-## Beta 0 — concluído
+## Beta 0 — done
 
-- [x] Rodar o Tap de verdade, apontado pro `:2583` local, e confirmar que ele entrega webhook quando um novo `social.orbita.shelf.item` é escrito
-- [x] `cmd/appview` ganhar um handler `/webhook` que recebe isso e indexa num banco local
-- [x] Trocar o `curl` manual por código Go real — OAuth completo, escrita confirmada na rede real
-- [x] Banco local — SQLite, tabela `shelf_items`, indexação automática via webhook
-- [x] Página simples listando o que foi sincronizado — `GET /shelf`
-- [x] Tap apontado pro relay real — confirmado, enumeração + backfill funcionando contra a rede de produção
+- [x] Run the real Tap, pointed at the local `:2583`, and confirm it delivers a webhook when a new `social.orbita.shelf.item` is written
+- [x] `cmd/appview` gets a `/webhook` handler that receives this and indexes it into a local database
+- [x] Replace the manual `curl` with real Go code — full OAuth, write confirmed on the real network
+- [x] Local database — SQLite, `shelf_items` table, automatic indexing via webhook
+- [x] Simple page listing what's been synced — `GET /shelf`
+- [x] Tap pointed at the real relay — confirmed, enumeration + backfill working against the production network
 
-Ver checklist completo e decisões em [`docs/BETA0-PLAN.md`](BETA0-PLAN.md).
+See the full checklist and decisions in [`docs/BETA0-PLAN.md`](BETA0-PLAN.md).

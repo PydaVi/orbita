@@ -9,8 +9,8 @@ import (
 	"net/http"
 )
 
-// Formato real observado nos eventos do Tap (ver docs/architecture-beta0-local.md) —
-// dois tipos existem, "identity" e "record"; só nos importa o segundo aqui.
+// Real shape observed in Tap events (see docs/architecture-beta0-local.md) —
+// two types exist, "identity" and "record"; only the second one matters here.
 type tapEvent struct {
 	Type   string         `json:"type"`
 	Record *tapRecordData `json:"record"`
@@ -38,13 +38,13 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		log.Printf("webhook recebido: %s", body)
+		log.Printf("webhook received: %s", body)
 
 		var evt tapEvent
 		if err := json.Unmarshal(body, &evt); err != nil {
-			// Não falha o webhook por isso — Tap reenviaria pra sempre.
-			// Só loga e confirma recebimento (200), como já fazíamos.
-			log.Printf("evento não reconhecido, ignorando: %v", err)
+			// Don't fail the webhook over this — Tap would keep resending forever.
+			// Just log it and confirm receipt (200), like we already did.
+			log.Printf("unrecognized event, ignoring: %v", err)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -56,9 +56,9 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 			uri := fmt.Sprintf("at://%s/%s/%s", rec.DID, rec.Collection, rec.Rkey)
 			err := insertShelfItem(db, uri, rec.CID, rec.DID, rec.Record.Work.Provider, rec.Record.Work.ID, rec.Record.CreatedAt)
 			if err != nil {
-				log.Printf("erro ao indexar %s: %v", uri, err)
+				log.Printf("failed to index %s: %v", uri, err)
 			} else {
-				log.Printf("indexado: %s", uri)
+				log.Printf("indexed: %s", uri)
 			}
 		}
 
