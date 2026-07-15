@@ -1,6 +1,6 @@
 # Beta 0 — rascunho de planejamento
 
-**Status:** 5 de 7 itens do progresso concluídos, incluindo os dois mais arriscados (OAuth real, escrita autenticada confirmada na rede de produção). Faltam só banco local e página de listagem — ver "Progresso" abaixo. Continua sendo um documento vivo. Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
+**Status:** 6 de 7 itens do progresso concluídos. Falta só um: apontar o Tap pro relay real em vez do PDS local — ver "Progresso" abaixo. Continua sendo um documento vivo. Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
 
 ## Objetivo
 
@@ -17,8 +17,9 @@ Sentir o problema mínimo primeiro: autenticar contra uma identidade que não é
 - [x] PDS de desenvolvimento local — [`scripts/dev-pds/run.mjs`](../scripts/dev-pds/run.mjs), via `@atproto/dev-env` (`TestNetworkNoAppView`: só PLC + PDS, sem Bsky AppView/Ozone/Postgres)
 - [x] Ciclo manual completo validado via `curl` (criar conta → escrever `shelf.item` → ler de volta) — ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
 - [x] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item` — rodado de verdade, backfill confirmado, ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
-- [ ] Banco local (indexação da cópia sincronizada — ver "Onde cada dado mora" abaixo)
-- [ ] Página simples listando o que foi sincronizado
+- [x] Banco local — [`cmd/appview/db.go`](../cmd/appview/db.go), SQLite puro-Go (`modernc.org/sqlite`, sem CGO), tabela `shelf_items`. [`webhook.go`](../cmd/appview/webhook.go) agora parseia o evento real do Tap e indexa, não só loga
+- [x] Página simples listando o que foi sincronizado — [`cmd/appview/list.go`](../cmd/appview/list.go), `GET /shelf`. Testado de ponta a ponta contra o PDS local: escrita → Tap → webhook → SQLite → página, todos os hops confirmados
+- [ ] Único item restante do critério de conclusão: Tap apontado pro **relay real** (não o PDS local), confirmando que pega o registro que já existe na conta real do autor
 
 ## Onde cada dado mora
 

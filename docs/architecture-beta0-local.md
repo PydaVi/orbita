@@ -131,13 +131,19 @@ Primeiro dado real da Órbita no AT Protocol — não sandbox, não backfill, es
 
 **Detalhe importante, ainda não resolvido:** esse registro não passou pelo nosso Tap — a instância que temos rodando ainda aponta `TAP_RELAY_URL` pro PDS local (`:2583`), não pro relay de produção real. Pra ver esse registro fluir pro webhook, precisamos de uma segunda instância do Tap com `TAP_RELAY_URL` no padrão (`https://relay1.us-east.bsky.network`, sem configurar nada) — o cenário "Beta 0 de verdade" da tabela acima, documentado mas ainda não testado.
 
+## Banco local e listagem — pipeline completo confirmado no sandbox
+
+`cmd/appview/db.go` (SQLite puro-Go, `modernc.org/sqlite`, tabela `shelf_items`) + `webhook.go` reescrito pra parsear o evento real do Tap (`type: "record"`, `action: "create"`, coleção `social.orbita.shelf.item`) e indexar, em vez de só logar. `list.go` expõe `GET /shelf`, lendo direto do banco.
+
+Testado de ponta a ponta contra o PDS local (registro novo, TMDB tv id `1396` — Breaking Bad): escrita → Tap (já rastreando o DID de teste) → webhook → `INSERT` no SQLite → `GET /shelf` mostrando o item, tudo no mesmo ciclo, sem intervenção manual em nenhum hop intermediário.
+
 ## O que ainda falta
 
 - [x] Rodar o Tap de verdade, apontado pro `:2583` local, e confirmar que ele entrega webhook quando um novo `social.orbita.shelf.item` é escrito
-- [x] `cmd/appview` ganhar um handler `/webhook` que recebe isso — só loga por enquanto, ainda não grava em banco
+- [x] `cmd/appview` ganhar um handler `/webhook` que recebe isso e indexa num banco local
 - [x] Trocar o `curl` manual por código Go real — OAuth completo, escrita confirmada na rede real
-- [ ] Tap apontado pro relay real (não o PDS local), confirmando que pega o registro que já existe na conta real do autor
-- [ ] Banco local (schema mínimo: `account` + a cópia indexada de `shelf.item`, como já descrito em `docs/BETA0-PLAN.md`) — os eventos do webhook ainda só vão pro log, não pra uma tabela
-- [ ] Página simples listando o que foi sincronizado
+- [x] Banco local — SQLite, tabela `shelf_items`, indexação automática via webhook
+- [x] Página simples listando o que foi sincronizado — `GET /shelf`
+- [ ] **Único item restante**: Tap apontado pro relay real (não o PDS local), confirmando que pega o registro que já existe na conta real do autor
 
 Ver checklist completo e decisões em [`docs/BETA0-PLAN.md`](BETA0-PLAN.md).
