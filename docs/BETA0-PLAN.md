@@ -1,6 +1,6 @@
 # Beta 0 — rascunho de planejamento
 
-**Status:** 6 de 7 itens do progresso concluídos. Falta só um: apontar o Tap pro relay real em vez do PDS local — ver "Progresso" abaixo. Continua sendo um documento vivo. Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
+**Status: Beta 0 concluído ✅** (2026-07-15). Todos os 7 itens do critério de conclusão prontos e confirmados na rede real, não só em sandbox — ver "Progresso" abaixo. Continua sendo um documento vivo. Desenvolvido com uso ativo de IA sob revisão direta — ver "Uso de IA no desenvolvimento" no [`README.md`](../README.md).
 
 ## Objetivo
 
@@ -19,7 +19,7 @@ Sentir o problema mínimo primeiro: autenticar contra uma identidade que não é
 - [x] Webhook + consumo do Tap, filtrado pra `social.orbita.shelf.item` — rodado de verdade, backfill confirmado, ver [`docs/architecture-beta0-local.md`](architecture-beta0-local.md)
 - [x] Banco local — [`cmd/appview/db.go`](../cmd/appview/db.go), SQLite puro-Go (`modernc.org/sqlite`, sem CGO), tabela `shelf_items`. [`webhook.go`](../cmd/appview/webhook.go) agora parseia o evento real do Tap e indexa, não só loga
 - [x] Página simples listando o que foi sincronizado — [`cmd/appview/list.go`](../cmd/appview/list.go), `GET /shelf`. Testado de ponta a ponta contra o PDS local: escrita → Tap → webhook → SQLite → página, todos os hops confirmados
-- [ ] Único item restante do critério de conclusão: Tap apontado pro **relay real** (não o PDS local), confirmando que pega o registro que já existe na conta real do autor
+- [x] Tap apontado pro **relay real** (`https://relay1.us-east.bsky.network`, padrão, zero configuração de URL) — confirmado: enumerou repositórios reais pela coleção, achou a conta do autor, fez backfill via CAR do PDS de produção, entregou via webhook. `GET /shelf` mostrando o registro real (`tmdb-movie/603`, `did:plc:kpsswg4vfyzjvxp577wsqh3t`) lado a lado com o do sandbox — mesmo binário, mesmo código, zero mudança, só a URL de configuração
 
 ## Onde cada dado mora
 
@@ -53,7 +53,7 @@ Sem nota, sem afinidade, sem constelação, sem tipo de obra — só o gesto de 
 
 4. **Licença: AGPL-3.0.** Mesma escolha do Mastodon, e pelo mesmo motivo específico: a cláusula de uso em rede fecha a brecha que o GPL comum deixa aberto — sem ela, alguém poderia pegar o código, modificar, e operar como serviço hospedado sem nunca precisar distribuir as modificações (usuário só interage pela rede, nunca recebe uma cópia do software). AGPL obriga a disponibilizar o código modificado a quem usa o serviço pela rede, não só a quem recebe uma cópia binária. É a proteção certa contra "alguém fecha isso e vende" sem impedir uso/estudo/fork legítimo.
 
-5. **Critério de "Beta 0 concluído"** — confirmado: login via OAuth funcionando contra uma conta real, um registro `social.orbita.shelf.item` criado no PDS dessa conta, Tap sincronizando esse registro pra um banco local, e uma página simples listando o que foi sincronizado. Sem UI além disso, sem segundo Lexicon, sem afinidade.
+5. **Critério de "Beta 0 concluído"** — ✅ **atingido de verdade, na rede real** (2026-07-15): login via OAuth funcionando contra `pydavi.bsky.social`, registro `social.orbita.shelf.item` criado no PDS de produção dessa conta, Tap (apontado pro relay real, não sandbox) sincronizando esse registro pra um banco local via webhook, e `GET /shelf` listando o resultado. Sem UI além disso, sem segundo Lexicon, sem afinidade — exatamente o escopo combinado, nada a mais.
 
 2. **Identificação da obra: migrada pro formato `{provider, id}`.** Substituiu a string livre (`workSlug`) — decisão original aceita como intermediária, revista depois da pesquisa de ecossistema abaixo. Já implementado e validado de ponta a ponta contra o PDS local (`work: {provider: "tmdb-movie", id: "603"}` — o ID real do Matrix na TMDB), incluindo entrega via Tap/webhook com `"live": true`. Ver schema completo em [`lexicons/social/orbita/shelf/item.json`](../lexicons/social/orbita/shelf/item.json).
 

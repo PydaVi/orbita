@@ -21,16 +21,16 @@ No fim, construí pra esse lab um produto que me empolgou tanto que esse aqui é
 
 ## Estado atual
 
-**Beta 0 — falta um item.** 6 dos 7 itens do critério de conclusão prontos — ver [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), que continua vivo e é atualizado a cada passo real, não só na hora do planejamento.
+**Beta 0 — concluído ✅** (2026-07-15). Ponta a ponta, contra a rede real: login OAuth, escrita autenticada, sincronização via Tap contra o relay de produção, banco local, página de listagem — ver [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), que documenta todo o processo, não só o resultado.
 
-O que já existe:
+O que existe:
 - [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — o primeiro Lexicon, schema do gesto de adicionar uma obra à estante
-- [`cmd/appview/`](cmd/appview/) — servidor Go completo: `/health`, login OAuth real, escrita autenticada (`/shelf/add`), webhook do Tap indexando num banco SQLite local, e `/shelf` listando o que foi sincronizado
-- **Primeiro dado real da Órbita no AT Protocol**: um `social.orbita.shelf.item` escrito via OAuth (PAR/PKCE/DPoP completos, sem atalho) na conta real do autor, confirmado no PDS de produção
+- [`cmd/appview/`](cmd/appview/) — servidor Go completo: login OAuth real, escrita autenticada (`/shelf/add`), webhook do Tap indexando num banco SQLite local, `/shelf` listando o que foi sincronizado
+- **Primeiro dado real da Órbita no AT Protocol**: um `social.orbita.shelf.item` escrito via OAuth (PAR/PKCE/DPoP completos, sem atalho) na conta real do autor, sincronizado pelo Tap contra o **relay de produção real** (`relay1.us-east.bsky.network`) — mesmo código, mesmo binário que roda contra o sandbox local, só a URL de configuração muda
 - [`scripts/dev-pds/`](scripts/dev-pds/) — PDS + PLC locais e descartáveis, sem Postgres, sem TLS, pra estudar e testar sem depender de conta real
-- Pipeline completo validado de ponta a ponta, duas vezes — escrita → Tap → webhook → banco → página — arquitetura documentada em [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
+- Pipeline validado de ponta a ponta duas vezes — sandbox local e rede de produção — arquitetura completa documentada em [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-O que falta pro Beta 0 ser considerado concluído (ver critério em `docs/BETA0-PLAN.md`): só o Tap ainda aponta pro PDS local, não pro relay de produção — falta confirmar que ele pega um registro real da rede, não só do sandbox.
+Próximo passo: a definir — ver `docs/BETA0-PLAN.md` pra acompanhar.
 
 Isso é um hobby virando ideia, documentado em público. Progresso e decisões saem também no perfil [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) *(em breve)*.
 

@@ -129,21 +129,41 @@ GET .../xrpc/com.atproto.repo.listRecords?repo=did:plc:kpsswg4vfyzjvxp577wsqh3t&
 
 Primeiro dado real da Órbita no AT Protocol — não sandbox, não backfill, escrito pelo nosso próprio código Go.
 
-**Detalhe importante, ainda não resolvido:** esse registro não passou pelo nosso Tap — a instância que temos rodando ainda aponta `TAP_RELAY_URL` pro PDS local (`:2583`), não pro relay de produção real. Pra ver esse registro fluir pro webhook, precisamos de uma segunda instância do Tap com `TAP_RELAY_URL` no padrão (`https://relay1.us-east.bsky.network`, sem configurar nada) — o cenário "Beta 0 de verdade" da tabela acima, documentado mas ainda não testado.
-
 ## Banco local e listagem — pipeline completo confirmado no sandbox
 
 `cmd/appview/db.go` (SQLite puro-Go, `modernc.org/sqlite`, tabela `shelf_items`) + `webhook.go` reescrito pra parsear o evento real do Tap (`type: "record"`, `action: "create"`, coleção `social.orbita.shelf.item`) e indexar, em vez de só logar. `list.go` expõe `GET /shelf`, lendo direto do banco.
 
 Testado de ponta a ponta contra o PDS local (registro novo, TMDB tv id `1396` — Breaking Bad): escrita → Tap (já rastreando o DID de teste) → webhook → `INSERT` no SQLite → `GET /shelf` mostrando o item, tudo no mesmo ciclo, sem intervenção manual em nenhum hop intermediário.
 
-## O que ainda falta
+## Tap contra o relay real — o último item, confirmado
+
+Subimos uma segunda instância do Tap, **sem configurar `TAP_RELAY_URL` nem `TAP_PLC_URL`** — os defaults já são o relay de produção (`https://relay1.us-east.bsky.network`) e o `plc.directory` real. Só `TAP_SIGNAL_COLLECTION`, `TAP_COLLECTION_FILTERS` e `TAP_WEBHOOK_URL` (apontado pro mesmo `:8092`), mais `TAP_BIND` diferente pra não colidir com a instância local.
+
+O log mostrou algo que a instância local não conseguiu (lá, a "enumeração" falhava com 401 — nosso PLC fake não implementa esse endpoint): contra a rede real, a enumeração **funcionou**:
+
+```
+"enumerated repos by collection batch" collection=social.orbita.shelf.item count=1
+"finished enumerating network, sleeping for 1 day"
+"starting resync" did=did:plc:kpsswg4vfyzjvxp577wsqh3t
+"fetching repo from PDS" pds=https://agaric.us-west.host.bsky.network
+```
+
+Achou a conta real do autor (a única com registro na nossa coleção, contagem 1), buscou o repositório de verdade no PDS de produção, fez backfill — sem precisar de nenhuma escrita nova. `GET /shelf` passou a mostrar os dois registros lado a lado, sandbox e produção:
+
+```
+tmdb-tv/1396    — did:plc:nuftb5ux5jsmfsitowhsu4ab   (sandbox local)
+tmdb-movie/603  — did:plc:kpsswg4vfyzjvxp577wsqh3t   (rede real, pydavi.bsky.social)
+```
+
+**Mesmo binário, mesmo código Go, zero mudança de lógica** — só a URL de configuração diferenciou "brincar no sandbox" de "funcionar de verdade contra a rede inteira do Bluesky". É a prova mais concreta que temos de que o desenho (AppView como view derivada, reconstruível, nunca dona do dado) funciona igual nos dois mundos.
+
+## Beta 0 — concluído
 
 - [x] Rodar o Tap de verdade, apontado pro `:2583` local, e confirmar que ele entrega webhook quando um novo `social.orbita.shelf.item` é escrito
 - [x] `cmd/appview` ganhar um handler `/webhook` que recebe isso e indexa num banco local
 - [x] Trocar o `curl` manual por código Go real — OAuth completo, escrita confirmada na rede real
 - [x] Banco local — SQLite, tabela `shelf_items`, indexação automática via webhook
 - [x] Página simples listando o que foi sincronizado — `GET /shelf`
-- [ ] **Único item restante**: Tap apontado pro relay real (não o PDS local), confirmando que pega o registro que já existe na conta real do autor
+- [x] Tap apontado pro relay real — confirmado, enumeração + backfill funcionando contra a rede de produção
 
 Ver checklist completo e decisões em [`docs/BETA0-PLAN.md`](BETA0-PLAN.md).
