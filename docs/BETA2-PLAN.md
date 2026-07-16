@@ -1,25 +1,26 @@
 # Beta 2 — planning draft
 
-**Status:** scope agreed in conversation, not yet started, and further out than `BETA1-PLAN.md` — expect this to shift more than Beta 1's plan before work actually begins.
+**Status:** scope clarified in conversation (2026-07-16), not yet started.
 
 ## Goal
 
-Beta 1 gets Órbita to show a real title and poster for a work. It still treats a work as one flat thing — a whole movie, a whole series — with no way to point at a specific part of it. Beta 2's problem: `comum` already solved this exact problem on the Postgres side (season/episode/track/chapter granularity, ADR-006) two years before any AT Protocol code existed. Beta 2 is bringing that same idea to the AT Protocol side for the first time — and it isn't a trivial port, because Lexicon fields are much less forgiving to change after real accounts start using them than a Postgres column is.
+Beta 1 gets Órbita to show a real title and poster for a work. It still treats a work as one flat thing, with no way to attach anything to a specific part of it. Beta 2's problem: `comum` already solved this exact problem on the Postgres side (season/episode/track/chapter granularity, ADR-006) two years before any AT Protocol code existed. Beta 2 brings that same idea to the AT Protocol side for the first time.
 
-Concretely, inspired directly by Popfeed: a series shouldn't just be "Breaking Bad" — it should be able to show season → episode → synopsis, and let a shelf item (or whatever record ends up representing this) point at one specific episode, not just the show as a whole.
+**Scope correction from the original draft:** granularity in `comum` was never a property of the shelf — the shelf is always "this whole work is mine." Granularity belongs to the **note**, which `comum` anchors optionally to a season/episode/track/chapter. Beta 0/1 deliberately deferred introducing a second Lexicon; Beta 2 is that deferral coming due. Confirmed directly with the author: the shelf stays whole-work only (a series on the shelf, not an episode of it), and what's wanted is a work's page where you can browse season → episode and write a note anchored to one specific episode.
 
 ## Scope (draft)
 
-1. **Extend the catalog cache to store episode-level structure** for TV shows specifically — season number, episode number, title, synopsis, air date. Movies, albums, and books don't need this same shape (though they have their own granularity per `comum`'s precedent: track for albums, chapter for books) — likely out of scope for this beta's first pass, TV-only to start.
-2. **Fetch episode-level data from TMDB** (`/tv/{id}/season/{n}`), cached locally the same way Beta 1's work-level cache works.
-3. **Decide how a record references a specific episode** — this is the real design question of this beta, not a detail.
+1. **A second Lexicon, `social.orbita.note`.** ✅ **Written and tested.** [`lexicons/social/orbita/note.json`](../lexicons/social/orbita/note.json) — text + a `work` reference (reusing `social.orbita.shelf.item#work` via a cross-NSID `ref`, confirmed valid syntax against the spec before writing — no duplicated def) + optional `season`/`episode` integers. TV-only for this pass — no `track`/`chapter` yet for albums/books, noted as a future extension, not built now. Confirmed against the local sandbox PDS: wrote a note anchored to `tmdb-tv/1396` season 1 episode 1, read it back intact.
+2. **Fetch and cache episode-level catalog data** for TV shows — season list, episode list per season, synopsis, air date — from TMDB (`/tv/{id}` for seasons, `/tv/{id}/season/{n}` for episodes per season).
+3. **Extend `GET /works/{provider}/{id}`** (already exists, Beta 1) so that, for `tmdb-tv` works, it lets you browse season → episode, and each episode can have a note attached.
+4. **Note write path** — new OAuth scope (`repo:social.orbita.note?action=create`), a write handler mirroring `shelf.go`'s pattern, and Tap/webhook extended to index the second collection alongside the first.
 
-## Open questions — genuinely undecided, need real discussion before building
+## Open questions — still real, need discussion before/while building
 
-- **Schema evolution or new record type?** Does `social.orbita.shelf.item`'s `work` object gain optional `season`/`episode` fields, or does granular anchoring deserve its own record type entirely? Beta 0 already learned (the hard way, watching Popfeed's leftover `app.popsky.post` namespace) that Lexicon decisions are close to permanent once real accounts write real records. This needs the same care Beta 0 gave the `work` field itself, not a quick bolt-on.
-- **Which granularity per work type** — season/episode for TV, track for albums, chapter for books, mirroring `comum`'s nullable-column pattern (ADR-006) — but that was a Postgres answer; the Lexicon-shaped answer isn't obviously the same shape.
+- **`season`-without-`episode` / `episode`-without-`season`** — does the Lexicon schema need to enforce "episode requires season," or is that an application-level check in the Go write handler (Lexicon doesn't have JSON-Schema-style conditional-field constructs as far as confirmed)? Leaning toward application-level, not settled.
 - **Cache storage cost** — some shows run 500+ episodes; caching full episode lists for every show that shows up on a shelf is a real (if small-scale) storage question, not just a formality.
-- **Does this beta need real UI**, or is a plain-text listing of episodes still an acceptable "prove the mechanism" bar, same spirit as Beta 0 and Beta 1's bare HTML?
+- **Tap signal-collection is a single NSID, not a list** — `TAP_SIGNAL_COLLECTION` (what triggers "start tracking this repo") only takes one collection per the docs. If someone writes a note before ever using the shelf, would Tap notice them? Practically low-risk (shelf comes first in the product's own flow) but worth naming, not assuming away.
+- **Does this beta need real UI**, or is a plain-text season/episode listing still an acceptable "prove the mechanism" bar, same spirit as Beta 0 and Beta 1's bare HTML?
 
 ## Explicitly not in this beta
 

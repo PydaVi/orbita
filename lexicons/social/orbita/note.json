@@ -1,0 +1,41 @@
+{
+  "lexicon": 1,
+  "id": "social.orbita.note",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A note about a work, optionally anchored to a specific season/episode.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["work", "text", "createdAt"],
+        "properties": {
+          "work": {
+            "type": "ref",
+            "ref": "social.orbita.shelf.item#work",
+            "description": "Reuses shelf.item's work def instead of duplicating it — same {provider, id} shape."
+          },
+          "season": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "TV only. If set without episode, the note is about the season as a whole."
+          },
+          "episode": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "TV only. Requires season to also be set — enforced by the appview, not this schema."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 3000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}
