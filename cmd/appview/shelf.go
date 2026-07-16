@@ -46,6 +46,7 @@ func handleShelfAddForm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!doctype html>
 <p>Signed in as %s</p>
+<p><a href="/search">Search for a title</a> instead of typing a raw id below.</p>
 <form method="POST" action="/shelf/add">
   <label>Provider: <input name="provider" value="tmdb-movie"></label>
   <label>ID (e.g. 603 = The Matrix on TMDB): <input name="id" placeholder="603"></label>

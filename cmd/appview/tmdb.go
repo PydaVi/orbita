@@ -68,6 +68,83 @@ func fetchFromTMDB(kind, id string) (resolvedWork, error) {
 	return resolvedWork{Title: title, PosterURL: poster, Year: year}, nil
 }
 
+type searchResult struct {
+	Provider  string
+	ID        string
+	Title     string
+	Year      string
+	PosterURL string
+}
+
+// searchTMDB queries both the movie and TV search endpoints (same
+// response shape as the detail endpoints, confirmed against the real
+// API before writing this) since the person searching usually doesn't
+// know or care which one it is — capped at 5 results per kind to keep
+// the page small.
+func searchTMDB(query string) ([]searchResult, error) {
+	apiKey := os.Getenv("TMDB_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("TMDB_API_KEY not set")
+	}
+
+	var results []searchResult
+	for _, kind := range []string{"movie", "tv"} {
+		u := fmt.Sprintf("https://api.themoviedb.org/3/search/%s?query=%s&api_key=%s",
+			kind, url.QueryEscape(query), url.QueryEscape(apiKey))
+
+		resp, err := http.Get(u)
+		if err != nil {
+			return nil, err
+		}
+		var body struct {
+			Results []struct {
+				ID           int    `json:"id"`
+				Title        string `json:"title"`
+				Name         string `json:"name"`
+				PosterPath   string `json:"poster_path"`
+				ReleaseDate  string `json:"release_date"`
+				FirstAirDate string `json:"first_air_date"`
+			} `json:"results"`
+		}
+		decodeErr := json.NewDecoder(resp.Body).Decode(&body)
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+
+		provider := "tmdb-movie"
+		if kind == "tv" {
+			provider = "tmdb-tv"
+		}
+
+		for i, r := range body.Results {
+			if i >= 5 {
+				break
+			}
+			title, date := r.Title, r.ReleaseDate
+			if kind == "tv" {
+				title, date = r.Name, r.FirstAirDate
+			}
+			year := ""
+			if len(date) >= 4 {
+				year = date[:4]
+			}
+			poster := ""
+			if r.PosterPath != "" {
+				poster = tmdbImageBase + r.PosterPath
+			}
+			results = append(results, searchResult{
+				Provider:  provider,
+				ID:        fmt.Sprintf("%d", r.ID),
+				Title:     title,
+				Year:      year,
+				PosterURL: poster,
+			})
+		}
+	}
+	return results, nil
+}
+
 // resolveWork maps our Lexicon's provider values to the right TMDB
 // endpoint. musicbrainz/open-library are declared in the Lexicon's
 // knownValues but have no resolver yet — fails, and the caller falls

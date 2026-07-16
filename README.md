@@ -21,16 +21,16 @@ In the end, I built a product for that lab that excited me enough that this is t
 
 ## Current state
 
-**Beta 0 — done ✅** (2026-07-15). End to end, against the real network: OAuth login, authenticated write, sync via Tap against the production relay, local database, listing page — see [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), which documents the whole process, not just the outcome.
+**Beta 0 and Beta 1 — done ✅** (2026-07-15 and 2026-07-16). End to end, against the real network: OAuth login, authenticated write and delete, sync via Tap against the production relay, cross-account aggregation, a real TMDB-backed search, local database, listing pages — see [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md) and [`docs/BETA1-PLAN.md`](docs/BETA1-PLAN.md), which document the whole process, not just the outcome.
 
 What exists:
 - [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — the first Lexicon, the schema for the gesture of adding a work to the shelf
-- [`cmd/appview/`](cmd/appview/) — a complete Go server: real OAuth login, authenticated write (`/shelf/add`), a Tap webhook indexing into a local SQLite database, `/shelf` listing what's been synced
-- **Órbita's first real piece of data on the AT Protocol**: a `social.orbita.shelf.item` written via OAuth (full PAR/PKCE/DPoP, no shortcuts) on the author's real account, synced by Tap against the **real production relay** (`relay1.us-east.bsky.network`) — same code, same binary that runs against the local sandbox, only the config URL changes
+- [`cmd/appview/`](cmd/appview/) — a complete Go server: real OAuth login, search-then-write (`/search`, `/shelf/add`), delete, a Tap webhook indexing into a local SQLite database, `/shelf` and `/works/{provider}/{id}` (cross-account "who has this") both showing real titles and posters via a TMDB cache
+- **Órbita's first real pieces of data on the AT Protocol**: several `social.orbita.shelf.item` records written via OAuth (full PAR/PKCE/DPoP, no shortcuts) on the author's real account, synced by Tap against the **real production relay** (`relay1.us-east.bsky.network`) — same code, same binary that runs against the local sandbox, only the config URL changes
 - [`scripts/dev-pds/`](scripts/dev-pds/) — a disposable local PDS + PLC, no Postgres, no TLS, for studying and testing without depending on a real account
-- Pipeline validated end to end twice — local sandbox and production network — full architecture documented in [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
+- Pipeline validated end to end, repeatedly, against both the local sandbox and the production network — full architecture documented in [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-Next up: [`docs/BETA1-PLAN.md`](docs/BETA1-PLAN.md) (cross-account aggregation, real catalog display) and [`docs/BETA2-PLAN.md`](docs/BETA2-PLAN.md) (episode-level catalog richness) — both still planning drafts, not started.
+Next up: [`docs/BETA2-PLAN.md`](docs/BETA2-PLAN.md) — episode-level catalog richness (season → episode → synopsis), still a planning draft, not started.
 
 This is a hobby turning into an idea, documented in public. Progress and decisions also go out on the [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) profile *(coming soon)*.
 
