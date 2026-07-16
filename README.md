@@ -30,7 +30,7 @@ What exists:
 - [`scripts/dev-pds/`](scripts/dev-pds/) — a disposable local PDS + PLC, no Postgres, no TLS, for studying and testing without depending on a real account
 - Pipeline validated end to end twice — local sandbox and production network — full architecture documented in [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-Next step: to be determined — see `docs/BETA0-PLAN.md` for updates.
+Next up: [`docs/BETA1-PLAN.md`](docs/BETA1-PLAN.md) (cross-account aggregation, real catalog display) and [`docs/BETA2-PLAN.md`](docs/BETA2-PLAN.md) (episode-level catalog richness) — both still planning drafts, not started.
 
 This is a hobby turning into an idea, documented in public. Progress and decisions also go out on the [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) profile *(coming soon)*.
 
