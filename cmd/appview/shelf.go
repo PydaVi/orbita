@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,9 +12,12 @@ import (
 // Replaces the manual curl: writes a real social.orbita.shelf.item,
 // authenticated via the OAuth session (DPoP, PAR, PKCE already resolved
 // by the lib at login — here we just reuse the saved session).
-func setupShelf(mux *http.ServeMux) {
+func setupShelf(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("GET /shelf/add", handleShelfAddForm)
 	mux.HandleFunc("POST /shelf/add", handleShelfAdd)
+	mux.HandleFunc("POST /shelf/delete", func(w http.ResponseWriter, r *http.Request) {
+		handleShelfDelete(w, r, db)
+	})
 }
 
 func currentSessionDID(r *http.Request) (*syntax.DID, string) {
@@ -91,4 +95,53 @@ func handleShelfAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, "added to shelf: %s/%s — check your real PDS", provider, workID)
+}
+
+// Deletes the real PDS record first — com.atproto.repo.deleteRecord only
+// ever succeeds against the authenticated account's own repo, so there's
+// no separate ownership check to write here, the protocol already
+// enforces it. Only removes our local indexed copy after that succeeds.
+func handleShelfDelete(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	ctx := r.Context()
+	did, sessionID := currentSessionDID(r)
+	if did == nil {
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	oauthSess, err := oauthClient.ResumeSession(ctx, *did, sessionID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid session, please sign in again: %v", err), http.StatusUnauthorized)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	uri := r.PostFormValue("uri")
+	atURI, err := syntax.ParseATURI(uri)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid AT-URI: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	c := oauthSess.APIClient()
+	body := map[string]any{
+		"repo":       c.AccountDID.String(),
+		"collection": atURI.Collection().String(),
+		"rkey":       atURI.RecordKey().String(),
+	}
+
+	log.Printf("deleting %s via OAuth (DPoP)", uri)
+	if err := c.Post(ctx, "com.atproto.repo.deleteRecord", body, nil); err != nil {
+		http.Error(w, fmt.Sprintf("failed to delete record: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if err := deleteShelfItem(db, uri); err != nil {
+		log.Printf("deleted from PDS but failed to remove local index for %s: %v", uri, err)
+	}
+
+	http.Redirect(w, r, "/shelf", http.StatusFound)
 }

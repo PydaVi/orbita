@@ -25,7 +25,7 @@ func main() {
 		log.Fatal("SESSION_SECRET not set — generate one with `openssl rand -hex 16`")
 	}
 	setupOAuth(mux, sessionSecret)
-	setupShelf(mux)
+	setupShelf(mux, db)
 	setupWebhook(mux, db)
 	setupList(mux, db)
 	setupWorks(mux, db)

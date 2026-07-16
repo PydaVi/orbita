@@ -28,8 +28,12 @@ func setupList(mux *http.ServeMux, db *sql.DB) {
 			if poster != "" {
 				img = fmt.Sprintf(`<br><img src="%s" height="120">`, html.EscapeString(poster))
 			}
-			fmt.Fprintf(w, "<li><b>%s</b> — %s (indexed %s)<br><small>%s</small>%s</li>",
-				html.EscapeString(title), it.DID, it.IndexedAt, it.URI, img)
+			fmt.Fprintf(w, `<li><b>%s</b> — %s (indexed %s)<br><small>%s</small>%s
+				<form method="POST" action="/shelf/delete" style="display:inline">
+				  <input type="hidden" name="uri" value="%s">
+				  <button type="submit">Delete</button>
+				</form></li>`,
+				html.EscapeString(title), it.DID, it.IndexedAt, it.URI, img, html.EscapeString(it.URI))
 		}
 		if len(items) == 0 {
 			fmt.Fprint(w, "<li>nothing synced yet</li>")

@@ -65,6 +65,16 @@ func insertShelfItem(db *sql.DB, uri, cid, did, provider, workID, createdAt stri
 	return err
 }
 
+// Removes our local indexed copy. Does NOT touch the PDS — that's a
+// separate call (com.atproto.repo.deleteRecord), made by the caller
+// first. If Tap ever redelivers a delete for this uri (it isn't handled
+// in webhook.go yet — a known gap, only "create" is handled today),
+// this is naturally a no-op by then.
+func deleteShelfItem(db *sql.DB, uri string) error {
+	_, err := db.Exec(`DELETE FROM shelf_items WHERE uri = ?`, uri)
+	return err
+}
+
 type ShelfItem struct {
 	URI       string
 	CID       string

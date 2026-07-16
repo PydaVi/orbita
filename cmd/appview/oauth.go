@@ -20,9 +20,16 @@ var (
 // PKCE + DPoP internally — we don't write any of that by hand, just call
 // the lib.
 func setupOAuth(mux *http.ServeMux, sessionSecret string) {
-	// Minimal scope: only permission to create a record in our own
-	// collection, no access to the whole account.
-	scopes := []string{"atproto", "repo:social.orbita.shelf.item?action=create"}
+	// Minimal scope: only create + delete on our own collection, no
+	// access to the whole account, no "update" either since we don't
+	// have that feature yet. REPO_ACTIONS is create/update/delete
+	// (confirmed against @atproto/oauth-scopes' source); multiple
+	// actions on the same collection repeat the "action" param, not a
+	// comma list. Found this the hard way: a real delete attempt failed
+	// with "ScopeMissingError: Missing required scope
+	// repo:social.orbita.shelf.item?action=delete" against the actual
+	// Bluesky server, because Beta 0 only ever requested "create".
+	scopes := []string{"atproto", "repo:social.orbita.shelf.item?action=create&action=delete"}
 
 	// NewLocalhostConfig uses the spec's local-development exception —
 	// client_id becomes a special "http://localhost", with no public
