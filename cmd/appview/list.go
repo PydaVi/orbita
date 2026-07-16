@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html"
 	"net/http"
 )
 
@@ -20,8 +21,15 @@ func setupList(mux *http.ServeMux, db *sql.DB) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, "<!doctype html><h1>Synced shelf</h1><ul>")
 		for _, it := range items {
-			fmt.Fprintf(w, "<li><b>%s/%s</b> — %s (indexed %s)<br><small>%s</small></li>",
-				it.Provider, it.WorkID, it.DID, it.IndexedAt, it.URI)
+			// Beta 1: resolved via TMDB and cached, falls back to the raw
+			// provider/id string on any failure (see displayWork in tmdb.go).
+			title, poster := displayWork(db, it.Provider, it.WorkID)
+			img := ""
+			if poster != "" {
+				img = fmt.Sprintf(`<br><img src="%s" height="120">`, html.EscapeString(poster))
+			}
+			fmt.Fprintf(w, "<li><b>%s</b> — %s (indexed %s)<br><small>%s</small>%s</li>",
+				html.EscapeString(title), it.DID, it.IndexedAt, it.URI, img)
 		}
 		if len(items) == 0 {
 			fmt.Fprint(w, "<li>nothing synced yet</li>")

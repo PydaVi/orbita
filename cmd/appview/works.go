@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html"
 	"net/http"
 )
 
@@ -21,9 +22,15 @@ func setupWorks(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
+		title, poster := displayWork(db, provider, id)
+		img := ""
+		if poster != "" {
+			img = fmt.Sprintf(`<img src="%s" height="180"><br>`, html.EscapeString(poster))
+		}
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, "<!doctype html><h1>%s/%s</h1><p>%d account(s) have this on their shelf:</p><ul>",
-			provider, id, len(items))
+		fmt.Fprintf(w, "<!doctype html>%s<h1>%s</h1><p>%d account(s) have this on their shelf:</p><ul>",
+			img, html.EscapeString(title), len(items))
 		for _, it := range items {
 			fmt.Fprintf(w, "<li>%s (added %s)</li>", it.DID, it.CreatedAt)
 		}

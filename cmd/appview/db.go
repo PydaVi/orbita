@@ -24,6 +24,23 @@ CREATE TABLE IF NOT EXISTS shelf_items (
 );
 `
 
+// Beta 1, item 2: a lightweight cache, not comum's growing public
+// catalog. Only ever holds {provider, id} pairs that actually showed up
+// in shelf_items — resolved once against TMDB, reused after. Disposable
+// like everything else here: dropping this table just means the next
+// read re-resolves and re-fills it.
+const workCacheSchema = `
+CREATE TABLE IF NOT EXISTS work_cache (
+	provider   TEXT NOT NULL,
+	work_id    TEXT NOT NULL,
+	title      TEXT NOT NULL,
+	poster_url TEXT NOT NULL,
+	year       TEXT NOT NULL,
+	cached_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+	PRIMARY KEY (provider, work_id)
+);
+`
+
 func openDB(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -31,6 +48,9 @@ func openDB(path string) (*sql.DB, error) {
 	}
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("creating schema: %w", err)
+	}
+	if _, err := db.Exec(workCacheSchema); err != nil {
+		return nil, fmt.Errorf("creating work_cache schema: %w", err)
 	}
 	return db, nil
 }
@@ -72,6 +92,26 @@ func listShelfItems(db *sql.DB) ([]ShelfItem, error) {
 		items = append(items, it)
 	}
 	return items, rows.Err()
+}
+
+func getCachedWork(db *sql.DB, provider, workID string) (title, posterURL, year string, ok bool) {
+	row := db.QueryRow(`SELECT title, poster_url, year FROM work_cache WHERE provider = ? AND work_id = ?`,
+		provider, workID)
+	if err := row.Scan(&title, &posterURL, &year); err != nil {
+		return "", "", "", false
+	}
+	return title, posterURL, year, true
+}
+
+func setCachedWork(db *sql.DB, provider, workID, title, posterURL, year string) error {
+	_, err := db.Exec(
+		`INSERT INTO work_cache (provider, work_id, title, poster_url, year)
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT(provider, work_id) DO UPDATE SET
+		   title = excluded.title, poster_url = excluded.poster_url, year = excluded.year`,
+		provider, workID, title, posterURL, year,
+	)
+	return err
 }
 
 // The Beta 1 "aggregation" query: grouped by work instead of listed by
