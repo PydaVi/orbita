@@ -1,6 +1,6 @@
 # Beta 1 — planning draft
 
-**Status:** scope agreed in conversation, not yet started. This is a living document, same spirit as `BETA0-PLAN.md` — closing a decision here means "enough to start building," not "impossible to revisit."
+**Status:** in progress — item 3 (cross-account grouping) built and confirmed with real overlapping data. Living document, same spirit as `BETA0-PLAN.md`.
 
 ## Goal
 
@@ -10,9 +10,9 @@ Concretely: if two different real accounts both have the same work on their shel
 
 ## Scope — three items, agreed in discussion
 
-1. **Search at write time.** Inspired by Popfeed's UX, applied differently: Popfeed embeds the full resolved metadata into the record itself; we keep the minimal `{provider, id}` shape in the actual Lexicon record (no schema change — that decision from Beta 0 stands). Search happens *before* writing, purely to figure out the right `{provider, id}` pair — the PDS record stays exactly as lean as it is today.
-2. **Lightweight read-time cache.** To show "The Matrix" with a poster instead of `tmdb-movie/603`. Not `comum`'s full growing public catalog (`works` table, community fallback, moderated sources) — just enough local caching of whatever `{provider, id}` pairs actually show up in our indexed `shelf_items`, resolved once, reused after.
-3. **Cross-account grouping — the actual new problem.** A query/page that answers "who has this specific work," grouped by work rather than listed by event. This is also the mechanical building block affinity will eventually need (comparing two whole shelves is the same kind of grouped query, one level up) — but affinity itself is explicitly **not** in this beta.
+1. **Search at write time.** Inspired by Popfeed's UX, applied differently: Popfeed embeds the full resolved metadata into the record itself; we keep the minimal `{provider, id}` shape in the actual Lexicon record (no schema change — that decision from Beta 0 stands). Search happens *before* writing, purely to figure out the right `{provider, id}` pair — the PDS record stays exactly as lean as it is today. — *not started*
+2. **Lightweight read-time cache.** To show "The Matrix" with a poster instead of `tmdb-movie/603`. Not `comum`'s full growing public catalog (`works` table, community fallback, moderated sources) — just enough local caching of whatever `{provider, id}` pairs actually show up in our indexed `shelf_items`, resolved once, reused after. — *not started, TMDB key now available (see below)*
+3. **Cross-account grouping — the actual new problem.** ✅ **Built and confirmed.** [`cmd/appview/works.go`](../cmd/appview/works.go), `GET /works/{provider}/{id}`, backed by `listShelfItemsByWork` in [`db.go`](../cmd/appview/db.go) — groups `shelf_items` by `(provider, work_id)` instead of listing by event. Tested with real overlapping data: added `tmdb-movie/603` (The Matrix) to the sandbox test account (which already had it on the author's real `pydavi.bsky.social` account) — `GET /works/tmdb-movie/603` correctly returned **both** DIDs. This is also the mechanical building block affinity will eventually need (comparing two whole shelves is the same kind of grouped query, one level up) — but affinity itself is explicitly **not** in this beta.
 
 ## Explicitly out of scope for Beta 1
 
@@ -24,7 +24,7 @@ Concretely: if two different real accounts both have the same work on their shel
 ## Open questions — not decided yet
 
 - **Search backend:** does "search at write time" need a new server-side endpoint (e.g. `GET /search?q=...` proxying TMDB) so the API key never reaches the browser, or is there a simpler shape? Leaning toward a backend proxy for the obvious reason (don't leak API credentials client-side), but not settled.
-- **TMDB credentials:** `orbita` doesn't have its own TMDB API key/setup yet — `comum` already solved this (ADR-009) but this repo needs its own. Where does the key live — env var, presumably, but not decided.
+- ~~**TMDB credentials**~~ — resolved: the author has a TMDB API key. Loaded via `.env` (gitignored) + `github.com/joho/godotenv/autoload` in `main.go`, read as `os.Getenv("TMDB_API_KEY")` — not written into any committed file.
 - **Cache table shape:** one flat table keyed by `(provider, id)` with `title`/`poster`/`year`? Movies and TV shows fit that shape; MusicBrainz (albums) and Open Library (books) have different natural fields (artist vs. author, etc.) — worth deciding whether one generic shape is enough for Beta 1 or if that's premature.
 - **Test data:** cross-account grouping only means something if at least two *real* accounts have overlapping shelf data. Need to figure out how we'll actually populate that — a second real test account, or is the author's own account plus the sandbox enough to demonstrate the mechanism honestly?
 

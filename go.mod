@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/bluesky-social/indigo v0.0.0-20260629160527-dfe5578fd537
 	github.com/gorilla/sessions v1.4.0
+	github.com/joho/godotenv v1.5.1
 	modernc.org/sqlite v1.53.0
 )
 

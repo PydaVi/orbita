@@ -73,3 +73,27 @@ func listShelfItems(db *sql.DB) ([]ShelfItem, error) {
 	}
 	return items, rows.Err()
 }
+
+// The Beta 1 "aggregation" query: grouped by work instead of listed by
+// event. This is the first query where looking at the whole network of
+// shelves is more useful than looking at what one person did.
+func listShelfItemsByWork(db *sql.DB, provider, workID string) ([]ShelfItem, error) {
+	rows, err := db.Query(`SELECT uri, cid, did, provider, work_id, created_at, indexed_at
+	                        FROM shelf_items WHERE provider = ? AND work_id = ?
+	                        ORDER BY created_at ASC`,
+		provider, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []ShelfItem
+	for rows.Next() {
+		var it ShelfItem
+		if err := rows.Scan(&it.URI, &it.CID, &it.DID, &it.Provider, &it.WorkID, &it.CreatedAt, &it.IndexedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	return items, rows.Err()
+}
