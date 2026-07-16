@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"strconv"
 )
 
 // The Beta 1 aggregation page: "who has this specific work," grouped by
@@ -38,5 +39,85 @@ func setupWorks(mux *http.ServeMux, db *sql.DB) {
 			fmt.Fprint(w, "<li>nobody has this yet</li>")
 		}
 		fmt.Fprint(w, "</ul>")
+
+		// Beta 2: season navigation, TV only — a movie/album/book has
+		// nothing to browse into.
+		if provider == "tmdb-tv" {
+			seasons := displaySeasons(db, provider, id)
+			fmt.Fprint(w, "<h2>Seasons</h2><ul>")
+			for _, s := range seasons {
+				fmt.Fprintf(w, `<li><a href="/works/%s/%s/season/%d">%s</a> (%d episodes)</li>`,
+					provider, id, s.Number, html.EscapeString(s.Name), s.EpisodeCount)
+			}
+			if len(seasons) == 0 {
+				fmt.Fprint(w, "<li>could not load seasons</li>")
+			}
+			fmt.Fprint(w, "</ul>")
+		}
+	})
+
+	mux.HandleFunc("GET /works/{provider}/{id}/season/{season}", func(w http.ResponseWriter, r *http.Request) {
+		provider := r.PathValue("provider")
+		id := r.PathValue("id")
+		seasonNum, err := strconv.Atoi(r.PathValue("season"))
+		if err != nil {
+			http.Error(w, "invalid season number", http.StatusBadRequest)
+			return
+		}
+
+		title, _ := displayWork(db, provider, id)
+		episodes := displayEpisodes(db, provider, id, seasonNum)
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<!doctype html><p><a href="/works/%s/%s">&laquo; %s</a></p><h1>%s — Season %d</h1><ul>`,
+			provider, id, html.EscapeString(title), html.EscapeString(title), seasonNum)
+		for _, e := range episodes {
+			fmt.Fprintf(w, `<li><a href="/works/%s/%s/season/%d/episode/%d">Episode %d: %s</a> (%s)</li>`,
+				provider, id, seasonNum, e.Number, e.Number, html.EscapeString(e.Name), html.EscapeString(e.AirDate))
+		}
+		if len(episodes) == 0 {
+			fmt.Fprint(w, "<li>could not load episodes</li>")
+		}
+		fmt.Fprint(w, "</ul>")
+	})
+
+	mux.HandleFunc("GET /works/{provider}/{id}/season/{season}/episode/{episode}", func(w http.ResponseWriter, r *http.Request) {
+		provider := r.PathValue("provider")
+		id := r.PathValue("id")
+		seasonNum, err := strconv.Atoi(r.PathValue("season"))
+		if err != nil {
+			http.Error(w, "invalid season number", http.StatusBadRequest)
+			return
+		}
+		episodeNum, err := strconv.Atoi(r.PathValue("episode"))
+		if err != nil {
+			http.Error(w, "invalid episode number", http.StatusBadRequest)
+			return
+		}
+
+		title, _ := displayWork(db, provider, id)
+		episodes := displayEpisodes(db, provider, id, seasonNum)
+
+		var ep *episode
+		for i := range episodes {
+			if episodes[i].Number == episodeNum {
+				ep = &episodes[i]
+				break
+			}
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<!doctype html><p><a href="/works/%s/%s/season/%d">&laquo; %s Season %d</a></p>`,
+			provider, id, seasonNum, html.EscapeString(title), seasonNum)
+		if ep == nil {
+			fmt.Fprint(w, "<p>episode not found</p>")
+			return
+		}
+		fmt.Fprintf(w, "<h1>%s — S%dE%d: %s</h1><p>%s</p><p><small>%s</small></p>",
+			html.EscapeString(title), seasonNum, episodeNum, html.EscapeString(ep.Name),
+			html.EscapeString(ep.Overview), html.EscapeString(ep.AirDate))
+
+		// Notes go here next — not built yet.
+		fmt.Fprint(w, "<p><em>Notes for this episode: not built yet.</em></p>")
 	})
 }

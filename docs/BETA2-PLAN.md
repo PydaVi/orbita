@@ -11,9 +11,9 @@ Beta 1 gets Órbita to show a real title and poster for a work. It still treats 
 ## Scope (draft)
 
 1. **A second Lexicon, `social.orbita.note`.** ✅ **Written and tested.** [`lexicons/social/orbita/note.json`](../lexicons/social/orbita/note.json) — text + a `work` reference (reusing `social.orbita.shelf.item#work` via a cross-NSID `ref`, confirmed valid syntax against the spec before writing — no duplicated def) + optional `season`/`episode` integers. TV-only for this pass — no `track`/`chapter` yet for albums/books, noted as a future extension, not built now. Confirmed against the local sandbox PDS: wrote a note anchored to `tmdb-tv/1396` season 1 episode 1, read it back intact.
-2. **Fetch and cache episode-level catalog data** for TV shows — season list, episode list per season, synopsis, air date — from TMDB (`/tv/{id}` for seasons, `/tv/{id}/season/{n}` for episodes per season).
-3. **Extend `GET /works/{provider}/{id}`** (already exists, Beta 1) so that, for `tmdb-tv` works, it lets you browse season → episode, and each episode can have a note attached.
-4. **Note write path** — new OAuth scope (`repo:social.orbita.note?action=create`), a write handler mirroring `shelf.go`'s pattern, and Tap/webhook extended to index the second collection alongside the first.
+2. **Fetch and cache episode-level catalog data.** ✅ **Built and confirmed.** [`cmd/appview/episodes.go`](../cmd/appview/episodes.go) (`fetchSeasons`/`fetchEpisodes`/`displaySeasons`/`displayEpisodes`) + `season_cache`/`episode_cache` tables in `db.go`, same cache-first/fail-open shape as `work_cache`.
+3. **Extend `GET /works/{provider}/{id}`.** ✅ **Built and confirmed.** For `tmdb-tv` works it now lists seasons, `GET /works/{provider}/{id}/season/{n}` lists episodes, and `GET /works/{provider}/{id}/season/{n}/episode/{n}` shows the real synopsis — verified against Breaking Bad S1E1 (Pilot), synopsis rendered correctly. Notes placeholder ("not built yet") shown honestly instead of pretending the feature is done.
+4. **Note write path** — new OAuth scope (`repo:social.orbita.note?action=create`), a write handler mirroring `shelf.go`'s pattern, and Tap/webhook extended to index the second collection alongside the first. — *not started*
 
 ## Open questions — still real, need discussion before/while building
 
