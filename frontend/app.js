@@ -79,12 +79,14 @@ function renderWorkPage(app, provider, id, work, viewer, deepSeason) {
   } else {
     hero.appendChild(el("span", { class: "mono coord", text: pseudoCoord(`${provider}/${id}`) }));
   }
-  hero.appendChild(
-    el("div", {}, [
-      el("h1", { class: "work-title", text: work.title || `${provider}/${id}` }),
-      el("hr", { class: "hero-rule" }),
-    ])
-  );
+  const heroBody = el("div", {}, [
+    el("h1", { class: "work-title", text: work.title || `${provider}/${id}` }),
+    el("hr", { class: "hero-rule" }),
+  ]);
+  if (work.overview) {
+    heroBody.appendChild(el("p", { class: "overview", text: work.overview }));
+  }
+  hero.appendChild(heroBody);
   app.appendChild(hero);
 
   // Order: poster > who has this on their shelf (with your own add/remove

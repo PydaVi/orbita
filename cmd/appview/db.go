@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS work_cache (
 	title      TEXT NOT NULL,
 	poster_url TEXT NOT NULL,
 	year       TEXT NOT NULL,
+	overview   TEXT NOT NULL DEFAULT '',
 	cached_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 	PRIMARY KEY (provider, work_id)
 );
@@ -119,22 +120,22 @@ func listShelfItemsByAccount(db *sql.DB, did string) ([]ShelfItem, error) {
 	return items, rows.Err()
 }
 
-func getCachedWork(db *sql.DB, provider, workID string) (title, posterURL, year string, ok bool) {
-	row := db.QueryRow(`SELECT title, poster_url, year FROM work_cache WHERE provider = ? AND work_id = ?`,
+func getCachedWork(db *sql.DB, provider, workID string) (title, posterURL, year, overview string, ok bool) {
+	row := db.QueryRow(`SELECT title, poster_url, year, overview FROM work_cache WHERE provider = ? AND work_id = ?`,
 		provider, workID)
-	if err := row.Scan(&title, &posterURL, &year); err != nil {
-		return "", "", "", false
+	if err := row.Scan(&title, &posterURL, &year, &overview); err != nil {
+		return "", "", "", "", false
 	}
-	return title, posterURL, year, true
+	return title, posterURL, year, overview, true
 }
 
-func setCachedWork(db *sql.DB, provider, workID, title, posterURL, year string) error {
+func setCachedWork(db *sql.DB, provider, workID, title, posterURL, year, overview string) error {
 	_, err := db.Exec(
-		`INSERT INTO work_cache (provider, work_id, title, poster_url, year)
-		 VALUES (?, ?, ?, ?, ?)
+		`INSERT INTO work_cache (provider, work_id, title, poster_url, year, overview)
+		 VALUES (?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(provider, work_id) DO UPDATE SET
-		   title = excluded.title, poster_url = excluded.poster_url, year = excluded.year`,
-		provider, workID, title, posterURL, year,
+		   title = excluded.title, poster_url = excluded.poster_url, year = excluded.year, overview = excluded.overview`,
+		provider, workID, title, posterURL, year, overview,
 	)
 	return err
 }

@@ -65,6 +65,7 @@ type workResponse struct {
 	ID       string         `json:"id"`
 	Title    string         `json:"title"`
 	Poster   string         `json:"poster,omitempty"`
+	Overview string         `json:"overview,omitempty"`
 	Accounts []accountEntry `json:"accounts"`
 	Seasons  []season       `json:"seasons,omitempty"`
 	Notes    []noteEntry    `json:"notes"`
@@ -225,7 +226,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 		entries := make([]shelfEntry, 0, len(items))
 		for _, it := range items {
-			title, poster := displayWork(db, it.Provider, it.WorkID)
+			title, poster, _ := displayWork(db, it.Provider, it.WorkID)
 			handle, avatar := resolveIdentity(r.Context(), db, it.DID)
 			entries = append(entries, shelfEntry{
 				URI: it.URI, Provider: it.Provider, ID: it.WorkID, Title: title, Poster: poster,
@@ -283,13 +284,14 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			noteEntries = append(noteEntries, toNoteEntry(r.Context(), db, n))
 		}
 
-		title, poster := displayWork(db, provider, id)
+		title, poster, overview := displayWork(db, provider, id)
 
 		resp := workResponse{
 			Provider: provider,
 			ID:       id,
 			Title:    title,
 			Poster:   poster,
+			Overview: overview,
 			Accounts: accounts,
 			Notes:    noteEntries,
 		}
@@ -310,7 +312,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
-		title, _ := displayWork(db, provider, id)
+		title, _, _ := displayWork(db, provider, id)
 		episodes := displayEpisodes(db, provider, id, seasonNum)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -337,7 +339,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
-		title, _ := displayWork(db, provider, id)
+		title, _, _ := displayWork(db, provider, id)
 		episodes := displayEpisodes(db, provider, id, seasonNum)
 
 		var ep *episode

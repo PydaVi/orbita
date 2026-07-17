@@ -20,6 +20,7 @@ type resolvedWork struct {
 	Title     string
 	PosterURL string
 	Year      string
+	Overview  string
 }
 
 func fetchFromTMDB(kind, id string) (resolvedWork, error) {
@@ -46,6 +47,7 @@ func fetchFromTMDB(kind, id string) (resolvedWork, error) {
 		PosterPath   string `json:"poster_path"`
 		ReleaseDate  string `json:"release_date"`
 		FirstAirDate string `json:"first_air_date"`
+		Overview     string `json:"overview"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return resolvedWork{}, err
@@ -65,7 +67,7 @@ func fetchFromTMDB(kind, id string) (resolvedWork, error) {
 		poster = tmdbImageBase + body.PosterPath
 	}
 
-	return resolvedWork{Title: title, PosterURL: poster, Year: year}, nil
+	return resolvedWork{Title: title, PosterURL: poster, Year: year, Overview: body.Overview}, nil
 }
 
 type searchResult struct {
@@ -164,19 +166,19 @@ func resolveWork(provider, id string) (resolvedWork, error) {
 // call. Cache-first; falls back to the raw "provider/id" string on any
 // failure (unsupported provider, TMDB down, rate limited) instead of
 // breaking the page — same fail-open spirit as comum's Redis cache.
-func displayWork(db *sql.DB, provider, workID string) (title, posterURL string) {
-	if t, p, _, ok := getCachedWork(db, provider, workID); ok {
-		return t, p
+func displayWork(db *sql.DB, provider, workID string) (title, posterURL, overview string) {
+	if t, p, _, o, ok := getCachedWork(db, provider, workID); ok {
+		return t, p, o
 	}
 
 	w, err := resolveWork(provider, workID)
 	if err != nil {
 		log.Printf("could not resolve %s/%s, showing raw id: %v", provider, workID, err)
-		return fmt.Sprintf("%s/%s", provider, workID), ""
+		return fmt.Sprintf("%s/%s", provider, workID), "", ""
 	}
 
-	if err := setCachedWork(db, provider, workID, w.Title, w.PosterURL, w.Year); err != nil {
+	if err := setCachedWork(db, provider, workID, w.Title, w.PosterURL, w.Year, w.Overview); err != nil {
 		log.Printf("failed to cache %s/%s: %v", provider, workID, err)
 	}
-	return w.Title, w.PosterURL
+	return w.Title, w.PosterURL, w.Overview
 }

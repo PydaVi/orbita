@@ -251,6 +251,12 @@ a:hover {
   margin: 0 0 1rem;
 }
 
+.overview {
+  max-width: 60ch;
+  line-height: 1.7;
+  color: var(--text);
+}
+
 /* ---- rhythm for everything below the hero ---- */
 section {
   margin-top: 2.75rem;
