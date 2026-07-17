@@ -78,23 +78,44 @@ what a profile actually shows — but this is explicitly under-scoped on
 purpose. It needs its own dedicated planning conversation before it becomes
 a real `BETA{N}-PLAN.md`, not just a scope item squeezed in here.
 
-**Ideas floated, none decided yet:**
-- Custom "formations" — a way for the person to define their own ordering
-  logic for works on their shelf, the way someone might sequence a record
-  collection by criteria only they care about, instead of always falling
-  back to chronological-by-default.
-- A size limit on the shelf, mirroring a physical shelf's finite space —
-  if it's full, adding a new work means consciously choosing something to
-  remove. Untested idea: could make the shelf feel like a real curatorial
-  act instead of an unbounded list, but also could just be friction. Named
-  as "something to explore," not a decision.
+**Ideas floated, refined over two conversations (2026-07-17):**
+- Custom labels the person defines themselves — not fixed system
+  categories — that group works into something closer to a playlist than a
+  folder: "cold days" could hold a blues album, a drama series, a horror
+  movie, and a novel all together. The label's name is itself the
+  explanation for why these things sit together, in the same spirit as
+  principle 2 ("the user always knows why they're seeing what they're
+  seeing") — except here the person writes that explanation themselves,
+  instead of the system inferring or ranking anything. Ordering within a
+  label is entirely free-form, chosen by the person, not derived from any
+  criteria the system understands.
+- These label-playlists are explicitly **a layer over the shelf, not a
+  parallel structure** (confirmed 2026-07-17): only works already on the
+  person's own shelf can go into one. This keeps "adding to your shelf" as
+  the one real commitment/gesture (see the product's own success metrics —
+  shelf additions are a real cultural gesture, playlists are recombination
+  of that, not a way around it).
+- Shareable: a label-playlist is a much richer thing to share than a
+  single note — closer to a small manifesto of taste than a list. Crossing
+  media types in one playlist (album + series + film + book together) may
+  be the one thing here no single-medium competitor (Letterboxd, Goodreads,
+  Discogs) can do, since it only works because this catalog already treats
+  every type as one thing.
+- A size limit, if it exists at all, applies only to the base shelf — the
+  scarce, curated set of what's really "yours" — never to playlists built
+  from it, which stay free to recombine without limit. Resolves the earlier
+  worry that a limit might fight against the creative, expressive side of
+  this idea: scarcity where it should force real curatorial choices,
+  freedom where the point is combination and re-combination.
 
-**Explicitly not decided:** whether either idea survives contact with real
-design work, what a "formation" even looks like concretely, whether a limit
-undermines or strengthens the product, and how (or whether) this interacts
-with the constellation visualization from earlier product work. This entry
-exists so the ambition doesn't get lost before the beta after it (fan-out)
-starts, not to pre-commit to an approach.
+**Explicitly not decided:** whether a label-playlist becomes its own
+Lexicon record (an ordered list of work references, its own name/title, its
+own AT-URI to share) or something simpler layered onto `shelf.item` itself;
+whether a shelf size limit survives contact with real use; how (or whether)
+any of this interacts with the constellation visualization from earlier
+product work. This entry exists so the ambition and the shape it's taking
+don't get lost before the beta after it (fan-out) starts, not to pre-commit
+to an implementation.
 
 ## Beta 8 — real fan-out (relay/firehose beyond your own account)
 
