@@ -76,3 +76,36 @@ func listNotes(db *sql.DB, provider, workID string, season, episode *int) ([]Not
 	}
 	return notes, rows.Err()
 }
+
+// AccountNote backs the profile page — every note a given account has
+// written, across every work, regardless of season/episode.
+type AccountNote struct {
+	URI       string
+	Provider  string
+	WorkID    string
+	Season    *int
+	Episode   *int
+	Text      string
+	CreatedAt string
+}
+
+func listNotesByAccount(db *sql.DB, did string) ([]AccountNote, error) {
+	rows, err := db.Query(
+		`SELECT uri, provider, work_id, season, episode, text, created_at FROM notes
+		 WHERE did = ? ORDER BY created_at DESC`,
+		did)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notes []AccountNote
+	for rows.Next() {
+		var n AccountNote
+		if err := rows.Scan(&n.URI, &n.Provider, &n.WorkID, &n.Season, &n.Episode, &n.Text, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		notes = append(notes, n)
+	}
+	return notes, rows.Err()
+}

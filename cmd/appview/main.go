@@ -41,10 +41,13 @@ func main() {
 	serveFrontend("/shelf.js", "shelf.js")
 
 	// Beta 4: the basic site layout — Feed and Profile exist as real pages
-	// (with a real nav to reach them) even though their content is a
-	// placeholder until Beta 5/6.
+	// (with a real nav to reach them). Beta 5: /profile/{handle} shows any
+	// account's profile, not just the viewer's own.
 	serveFrontend("/feed", "feed.html")
 	serveFrontend("/profile", "profile.html")
+	mux.HandleFunc("GET /profile/{handle}", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "frontend/profile.html")
+	})
 
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if sessionSecret == "" {

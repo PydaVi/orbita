@@ -110,8 +110,11 @@ function renderAccountsSection(app, provider, id, accounts, viewer) {
   const renderAccountRow = (acc) =>
     list.appendChild(
       el("li", { class: "account-row", id: `shelf-${rkeyOf(acc.uri)}` }, [
-        avatarEl(acc.handle, acc.avatarUrl),
-        el("span", { class: "mono", text: `@${displayHandle(acc.handle)} — ${acc.addedAt}` }),
+        el("a", { href: `/profile/${acc.handle}`, class: "account-row" }, [
+          avatarEl(acc.handle, acc.avatarUrl),
+          el("span", { class: "mono", text: `@${displayHandle(acc.handle)}` }),
+        ]),
+        el("span", { class: "mono", text: acc.addedAt }),
       ])
     );
   for (const acc of accounts) renderAccountRow(acc);
@@ -298,8 +301,11 @@ function renderNotesSection(container, provider, id, notes, season, episode, med
   const renderNote = (n) => {
     const rkey = rkeyOf(n.uri);
     const byline = el("div", { class: "note-byline" }, [
-      avatarEl(n.handle, n.avatarUrl),
-      el("span", { class: "mono", text: `@${displayHandle(n.handle)} · ${n.createdAt}` }),
+      el("a", { href: `/profile/${n.handle}`, class: "note-byline" }, [
+        avatarEl(n.handle, n.avatarUrl),
+        el("span", { class: "mono", text: `@${displayHandle(n.handle)}` }),
+      ]),
+      el("span", { class: "mono", text: n.createdAt }),
     ]);
     const shareBtn = el("button", { class: "share-btn", type: "button", text: "share ⤴" });
     shareBtn.addEventListener("click", async () => {

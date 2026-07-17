@@ -17,6 +17,32 @@ import (
 // the server hand-assembling markup. The work page and its season/episode
 // sub-pages are converted here; shelf reads/writes are still next.
 
+type profileShelfEntry struct {
+	Provider string `json:"provider"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Poster   string `json:"poster,omitempty"`
+}
+
+type profileNoteEntry struct {
+	URI       string `json:"uri"`
+	Provider  string `json:"provider"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Season    *int   `json:"season,omitempty"`
+	Episode   *int   `json:"episode,omitempty"`
+	Text      string `json:"text"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type profileResponse struct {
+	DID       string              `json:"did"`
+	Handle    string              `json:"handle"`
+	AvatarURL string              `json:"avatarUrl,omitempty"`
+	Shelf     []profileShelfEntry `json:"shelf"`
+	Notes     []profileNoteEntry  `json:"notes"`
+}
+
 type accountEntry struct {
 	URI       string `json:"uri"`
 	DID       string `json:"did"`
@@ -235,6 +261,52 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(entries)
+	})
+
+	// Beta 5: a page about a *person*, not a work — any account, not just
+	// the viewer's own, reachable by handle. Only ever shows data this
+	// appview already has locally (small-scale, same as everything so
+	// far) — an account that's never logged in here comes back empty, not
+	// an error, since it genuinely may just not have shown up yet.
+	mux.HandleFunc("GET /api/profile/{handle}", func(w http.ResponseWriter, r *http.Request) {
+		handleParam := r.PathValue("handle")
+		did, err := resolveHandleToDID(r.Context(), handleParam)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("could not resolve handle: %v", err), http.StatusNotFound)
+			return
+		}
+
+		handle, avatar := resolveIdentity(r.Context(), db, did)
+
+		shelfItems, err := listShelfItemsByAccount(db, did)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		shelf := make([]profileShelfEntry, 0, len(shelfItems))
+		for _, it := range shelfItems {
+			title, poster, _ := displayWork(db, it.Provider, it.WorkID)
+			shelf = append(shelf, profileShelfEntry{Provider: it.Provider, ID: it.WorkID, Title: title, Poster: poster})
+		}
+
+		accountNotes, err := listNotesByAccount(db, did)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		notes := make([]profileNoteEntry, 0, len(accountNotes))
+		for _, n := range accountNotes {
+			title, _, _ := displayWork(db, n.Provider, n.WorkID)
+			notes = append(notes, profileNoteEntry{
+				URI: n.URI, Provider: n.Provider, ID: n.WorkID, Title: title,
+				Season: n.Season, Episode: n.Episode, Text: n.Text, CreatedAt: n.CreatedAt,
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(profileResponse{
+			DID: did, Handle: handle, AvatarURL: avatar, Shelf: shelf, Notes: notes,
+		})
 	})
 
 	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {

@@ -5,28 +5,16 @@ with real scope, open questions, and a status once we actually start it — same
 process as Beta 0/1/2. This file exists so the order and the "why this, why
 now" of the whole arc is visible in one place, before any of it is detailed.
 
-Beta 0 through 4 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
+Beta 0 through 5 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
 [`BETA1-PLAN.md`](BETA1-PLAN.md), [`BETA2-PLAN.md`](BETA2-PLAN.md),
-[`BETA3-PLAN.md`](BETA3-PLAN.md), [`BETA4-PLAN.md`](BETA4-PLAN.md). Real UI
-(Beta 3) landed ahead of everything else on this list — not last, as
-originally sketched — precisely because a profile (Beta 5, next) is hard
-to reason about without a screen to look at, and Beta 4 gave every page
-from here on a persistent shell (topbar, nav) to live inside instead of
-being its own island. What follows is what's left before there's a beta
-worth actually presenting to someone outside this project.
-
-## Beta 5 — profile pages
-
-**Problem:** there's no page yet that's about a *person* rather than a
-*work* — even though the shelf/notes data to build one already exists by
-this point, and now so does a real interface (and, after Beta 4, a real
-site frame) to build it in.
-
-**Rough shape:** a profile surfacing one account's shelf and notes to
-start. Forum/events activity gets added if/when those betas land later.
-Constellation-style visualization and the geometric archetype from earlier
-product work are explicitly a stretch goal here, not a requirement for the
-first pass.
+[`BETA3-PLAN.md`](BETA3-PLAN.md), [`BETA4-PLAN.md`](BETA4-PLAN.md),
+[`BETA5-PLAN.md`](BETA5-PLAN.md). Real UI (Beta 3) landed ahead of
+everything else on this list — not last, as originally sketched —
+precisely because a profile is hard to reason about without a screen to
+look at, and Beta 4 gave every page from here on a persistent shell
+(topbar, nav) to live inside instead of being its own island. What follows
+is what's left before there's a beta worth actually presenting to someone
+outside this project.
 
 ## Beta 6 — feed
 

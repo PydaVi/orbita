@@ -91,6 +91,24 @@ func resolveIdentity(ctx context.Context, db *sql.DB, didStr string) (handle, av
 	return handle, avatarURL
 }
 
+// resolveHandleToDID is the reverse lookup profile pages need: given a
+// handle typed into a URL, find the DID it currently belongs to (bi-
+// directionally verified by the same CacheDirectory resolveIdentity uses,
+// so a handle that doesn't resolve, or a handle/DID mismatch, is a real
+// error here — there's no fallback string to show for an identity that
+// doesn't exist).
+func resolveHandleToDID(ctx context.Context, handleStr string) (string, error) {
+	h, err := syntax.ParseHandle(handleStr)
+	if err != nil {
+		return "", err
+	}
+	ident, err := identityDirectory.LookupHandle(ctx, h)
+	if err != nil {
+		return "", err
+	}
+	return ident.DID.String(), nil
+}
+
 // fetchAvatarURL reads the account's own app.bsky.actor.profile record
 // straight from its own PDS and builds the getBlob URL for the avatar —
 // no Bluesky-specific API call. Returns "" on any failure (no profile

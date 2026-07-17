@@ -311,6 +311,30 @@ ul.plain li.empty,
   font-size: 0.8em;
   color: var(--text-muted);
 }
+.avatar-lg {
+  width: 96px;
+  height: 96px;
+  font-size: 2rem;
+}
+
+/* ---- profile's shelf grid: posters, not a text list — a person's shelf
+   is a visual thing to browse, same instrument-like framing as the work
+   page's own poster. ---- */
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 1rem;
+}
+.shelf-grid-item {
+  display: block;
+  border-bottom: none;
+}
+.shelf-grid-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+}
 .account-row {
   display: flex;
   align-items: center;
