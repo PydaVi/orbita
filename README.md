@@ -31,7 +31,7 @@ What exists:
 - [`scripts/dev-pds/`](scripts/dev-pds/) — a disposable local PDS + PLC, no Postgres, no TLS, for studying and testing without depending on a real account
 - Pipeline validated end to end, repeatedly, against both the local sandbox and the production network — full architecture documented in [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-Next up: no beta scoped yet — affinity computation (comparing shelves across accounts) is the likely candidate, but nothing is planned until it's discussed.
+Next up: see [`docs/ROADMAP.md`](docs/ROADMAP.md) for the macro shape of what's left (Beta 3 through 7, still a sketch, not started) — real fan-out via relay/firehose, affinity, a feed, closing known gaps, and finally a real UI.
 
 This is a hobby turning into an idea, documented in public. Progress and decisions also go out on the [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) profile *(coming soon)*.
 
