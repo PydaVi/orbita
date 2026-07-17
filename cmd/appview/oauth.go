@@ -110,5 +110,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("login successful: %s", sessData.AccountDID.String())
-	http.Redirect(w, r, "/shelf/add", http.StatusFound)
+	// /shelf/add (the manual raw-id form) was retired in Beta 3 — /search
+	// is the real entry point for adding something to your shelf now.
+	http.Redirect(w, r, "/search", http.StatusFound)
 }

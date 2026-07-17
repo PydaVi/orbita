@@ -193,6 +193,29 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 
+	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {
+		did, _ := currentSessionDID(r)
+		if did == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		query := r.URL.Query().Get("q")
+		if query == "" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]searchResult{})
+			return
+		}
+
+		results, err := searchTMDB(query)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(results)
+	})
+
 	mux.HandleFunc("GET /api/works/{provider}/{id}", func(w http.ResponseWriter, r *http.Request) {
 		provider := r.PathValue("provider")
 		id := r.PathValue("id")

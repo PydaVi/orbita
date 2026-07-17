@@ -9,12 +9,12 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
-// Replaces the manual curl: writes a real social.orbita.shelf.item,
-// authenticated via the OAuth session (DPoP, PAR, PKCE already resolved
-// by the lib at login — here we just reuse the saved session).
+// The manual raw-id add form (type a provider and id by hand) is retired —
+// it was the exact path that caused the "Titanic" garbage-record incident
+// in docs/BETA1-PLAN.md, and /search plus POST /api/shelf/add fully
+// replace it now. Delete stays here, still used by the classic GET /shelf
+// debug page from Beta 0 (see list.go).
 func setupShelf(mux *http.ServeMux, db *sql.DB) {
-	mux.HandleFunc("GET /shelf/add", handleShelfAddForm)
-	mux.HandleFunc("POST /shelf/add", handleShelfAdd)
 	mux.HandleFunc("POST /shelf/delete", func(w http.ResponseWriter, r *http.Request) {
 		handleShelfDelete(w, r, db)
 	})
@@ -35,67 +35,6 @@ func currentSessionDID(r *http.Request) (*syntax.DID, string) {
 		return nil, ""
 	}
 	return &did, sessionID
-}
-
-func handleShelfAddForm(w http.ResponseWriter, r *http.Request) {
-	did, _ := currentSessionDID(r)
-	if did == nil {
-		http.Error(w, "not authenticated — sign in at /oauth/login first", http.StatusUnauthorized)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!doctype html>
-<p>Signed in as %s</p>
-<p><a href="/search">Search for a title</a> instead of typing a raw id below.</p>
-<form method="POST" action="/shelf/add">
-  <label>Provider: <input name="provider" value="tmdb-movie"></label>
-  <label>ID (e.g. 603 = The Matrix on TMDB): <input name="id" placeholder="603"></label>
-  <button type="submit">Add to shelf</button>
-</form>`, did.String())
-}
-
-func handleShelfAdd(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	did, sessionID := currentSessionDID(r)
-	if did == nil {
-		http.Error(w, "not authenticated", http.StatusUnauthorized)
-		return
-	}
-
-	oauthSess, err := oauthClient.ResumeSession(ctx, *did, sessionID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("invalid session, please sign in again: %v", err), http.StatusUnauthorized)
-		return
-	}
-
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	provider := r.PostFormValue("provider")
-	workID := r.PostFormValue("id")
-
-	c := oauthSess.APIClient()
-	body := map[string]any{
-		"repo":       c.AccountDID.String(),
-		"collection": "social.orbita.shelf.item",
-		"record": map[string]any{
-			"$type": "social.orbita.shelf.item",
-			"work": map[string]any{
-				"provider": provider,
-				"id":       workID,
-			},
-			"createdAt": syntax.DatetimeNow(),
-		},
-	}
-
-	log.Printf("writing shelf.item via OAuth (DPoP): provider=%s id=%s", provider, workID)
-	if err := c.Post(ctx, "com.atproto.repo.createRecord", body, nil); err != nil {
-		http.Error(w, fmt.Sprintf("failed to write record: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	fmt.Fprintf(w, "added to shelf: %s/%s — check your real PDS", provider, workID)
 }
 
 // Deletes the real PDS record first — com.atproto.repo.deleteRecord only

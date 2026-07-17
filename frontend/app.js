@@ -9,26 +9,8 @@
 // in via textContent, never innerHTML — nothing written by a stranger's
 // PDS can inject markup here.
 
-function el(tag, props, children) {
-  const node = document.createElement(tag);
-  if (props) {
-    for (const [k, v] of Object.entries(props)) {
-      if (k === "class") node.className = v;
-      else if (k === "text") node.textContent = v;
-      else node.setAttribute(k, v);
-    }
-  }
-  for (const child of children || []) {
-    node.appendChild(child);
-  }
-  return node;
-}
-
-async function fetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`API returned ${res.status}`);
-  return res.json();
-}
+// el(), fetchJSON(), and currentViewer() live in common.js, loaded before
+// this file.
 
 // Purely decorative, deterministic per work id, no backend data involved —
 // the "catalog coordinate" motif from this product's own visual language.
@@ -79,16 +61,6 @@ function scrollToHash() {
   if (target) {
     target.classList.add("highlight");
     target.scrollIntoView({ block: "center" });
-  }
-}
-
-async function currentViewer() {
-  try {
-    const res = await fetch("/api/me");
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
   }
 }
 

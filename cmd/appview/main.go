@@ -30,6 +30,12 @@ func main() {
 	mux.HandleFunc("GET /app.js", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "frontend/app.js")
 	})
+	mux.HandleFunc("GET /common.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "frontend/common.js")
+	})
+	mux.HandleFunc("GET /search.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "frontend/search.js")
+	})
 
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if sessionSecret == "" {

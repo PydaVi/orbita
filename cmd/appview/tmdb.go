@@ -69,11 +69,11 @@ func fetchFromTMDB(kind, id string) (resolvedWork, error) {
 }
 
 type searchResult struct {
-	Provider  string
-	ID        string
-	Title     string
-	Year      string
-	PosterURL string
+	Provider  string `json:"provider"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Year      string `json:"year"`
+	PosterURL string `json:"posterUrl,omitempty"`
 }
 
 // searchTMDB queries both the movie and TV search endpoints (same

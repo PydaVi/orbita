@@ -5,29 +5,14 @@ with real scope, open questions, and a status once we actually start it — same
 process as Beta 0/1/2. This file exists so the order and the "why this, why
 now" of the whole arc is visible in one place, before any of it is detailed.
 
-Beta 0, 1, and 2 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
-[`BETA1-PLAN.md`](BETA1-PLAN.md), [`BETA2-PLAN.md`](BETA2-PLAN.md). What
-follows is what's left before there's a beta worth actually presenting to
-someone outside this project.
-
-Real UI comes next, ahead of everything else on this list — not last, as
-originally sketched. Every beta after it is built with a real interface from
-the start instead of plain HTML, which is worth the reorder on its own: it's
-a lot easier to reason about a feature — profile especially — once you can
-actually look at it, not just curl it.
-
-## Beta 3 — real UI
-
-**Problem:** everything so far is plain-HTML "prove the mechanism" pages —
-fine for proving OAuth writes and Tap indexing work, not fine for reasoning
-about anything presentation-shaped, like a profile.
-
-**Rough shape:** to be planned in detail next — see the conversation this
-roadmap came out of. Likely direction: the same vanilla stack already
-validated in earlier product work (self-hosted fonts, hand-written CSS, no
-JS framework, no build step) applied to what already exists here (shelf,
-work pages, notes) as the first pass, so every beta after this one inherits
-it instead of starting from scratch.
+Beta 0 through 3 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
+[`BETA1-PLAN.md`](BETA1-PLAN.md), [`BETA2-PLAN.md`](BETA2-PLAN.md),
+[`BETA3-PLAN.md`](BETA3-PLAN.md). Real UI (Beta 3) landed ahead of
+everything else on this list — not last, as originally sketched — precisely
+because a profile (Beta 6, still ahead) is hard to reason about without a
+screen to look at. Every beta below is built on top of that real interface
+now, not plain HTML. What follows is what's left before there's a beta
+worth actually presenting to someone outside this project.
 
 ## Beta 4 — forum
 

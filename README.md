@@ -21,17 +21,18 @@ In the end, I built a product for that lab that excited me enough that this is t
 
 ## Current state
 
-**Beta 0, Beta 1, and Beta 2 — done ✅** (2026-07-15, 2026-07-16, and 2026-07-17). End to end, against the real network: OAuth login, authenticated write and delete, sync via Tap against the production relay, cross-account aggregation, a real TMDB-backed search, season/episode-level catalog browsing, notes anchored to a work or to a specific episode — see [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), [`docs/BETA1-PLAN.md`](docs/BETA1-PLAN.md), and [`docs/BETA2-PLAN.md`](docs/BETA2-PLAN.md), which document the whole process, not just the outcome.
+**Beta 0 through Beta 3 — done ✅** (2026-07-15 through 2026-07-17). End to end, against the real network: OAuth login, authenticated write and delete, sync via Tap against the production relay, cross-account aggregation, a real TMDB-backed search, season/episode-level catalog browsing, notes anchored to a work or to a specific episode, and — as of Beta 3 — a real interface (no more raw HTML strings) with resolved handles/avatars instead of raw DIDs. See [`docs/BETA0-PLAN.md`](docs/BETA0-PLAN.md), [`docs/BETA1-PLAN.md`](docs/BETA1-PLAN.md), [`docs/BETA2-PLAN.md`](docs/BETA2-PLAN.md), and [`docs/BETA3-PLAN.md`](docs/BETA3-PLAN.md), which document the whole process, not just the outcome.
 
 What exists:
 - [`lexicons/social/orbita/shelf/item.json`](lexicons/social/orbita/shelf/item.json) — the first Lexicon, the schema for the gesture of adding a work to the shelf
 - [`lexicons/social/orbita/note.json`](lexicons/social/orbita/note.json) — the second Lexicon, a note about a work as a whole or about one specific season/episode
-- [`cmd/appview/`](cmd/appview/) — a complete Go server: real OAuth login, search-then-write (`/search`, `/shelf/add`), delete, season/episode navigation (`/works/{provider}/{id}/season/{n}/episode/{n}`) with real TMDB synopses, notes writable from the work page or from any episode page, a Tap webhook indexing both collections into a local SQLite database, `/shelf` and `/works/{provider}/{id}` (cross-account "who has this") both showing real titles and posters via a TMDB cache
+- [`cmd/appview/`](cmd/appview/) — a Go server exposing a JSON API (`api.go`) behind real OAuth login: search-then-write (`/search`), shelf add/remove and notes writable straight from the work page, season/episode navigation with real TMDB synopses and each episode getting its own dedicated page, a Tap webhook indexing both collections into a local SQLite database, and handle/avatar resolution (`identity.go`) straight from each account's own DID document and PDS — never through Bluesky's API, so it works the same for any AT Protocol account
+- [`frontend/`](frontend/) — the first real interface: vanilla HTML/CSS/JS, no build step, self-hosted fonts, implementing the "Observatório" visual identity
 - **Órbita's first real pieces of data on the AT Protocol**: `social.orbita.shelf.item` and `social.orbita.note` records written via OAuth (full PAR/PKCE/DPoP, no shortcuts) on the author's real account, synced by Tap against the **real production relay** (`relay1.us-east.bsky.network`) — same code, same binary that runs against the local sandbox, only the config URL changes
 - [`scripts/dev-pds/`](scripts/dev-pds/) — a disposable local PDS + PLC, no Postgres, no TLS, for studying and testing without depending on a real account
 - Pipeline validated end to end, repeatedly, against both the local sandbox and the production network — full architecture documented in [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-Next up: see [`docs/ROADMAP.md`](docs/ROADMAP.md) for the macro shape of what's left (Beta 3 through 7, still a sketch, not started) — real fan-out via relay/firehose, affinity, a feed, closing known gaps, and finally a real UI.
+Next up: see [`docs/ROADMAP.md`](docs/ROADMAP.md) for the macro shape of what's left — forum and events (finishing the work page), profile pages, the shelf as a creative space, real fan-out, observability, affinity, a feed, direct messages, and closing known gaps. All still a sketch, none started.
 
 This is a hobby turning into an idea, documented in public. Progress and decisions also go out on the [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) profile *(coming soon)*.
 
