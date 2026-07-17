@@ -11,16 +11,17 @@ import (
 )
 
 type season struct {
-	Number       int
-	Name         string
-	EpisodeCount int
+	Number       int    `json:"number"`
+	Name         string `json:"name"`
+	EpisodeCount int    `json:"episodeCount"`
 }
 
 type episode struct {
-	Number   int
-	Name     string
-	Overview string
-	AirDate  string
+	Number   int    `json:"number"`
+	Name     string `json:"name"`
+	Overview string `json:"overview"`
+	AirDate  string `json:"airDate"`
+	StillURL string `json:"stillUrl,omitempty"`
 }
 
 // Cache tables, same disposable spirit as work_cache: dropping either
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS episode_cache (
 	name           TEXT NOT NULL,
 	overview       TEXT NOT NULL,
 	air_date       TEXT NOT NULL,
+	still_url      TEXT NOT NULL DEFAULT '',
 	cached_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 	PRIMARY KEY (provider, work_id, season_number, episode_number)
 );
@@ -93,7 +95,7 @@ func setCachedSeasons(db *sql.DB, provider, workID string, seasons []season) err
 
 func getCachedEpisodes(db *sql.DB, provider, workID string, seasonNumber int) ([]episode, bool) {
 	rows, err := db.Query(
-		`SELECT episode_number, name, overview, air_date FROM episode_cache
+		`SELECT episode_number, name, overview, air_date, still_url FROM episode_cache
 		 WHERE provider = ? AND work_id = ? AND season_number = ? ORDER BY episode_number ASC`,
 		provider, workID, seasonNumber)
 	if err != nil {
@@ -104,7 +106,7 @@ func getCachedEpisodes(db *sql.DB, provider, workID string, seasonNumber int) ([
 	var episodes []episode
 	for rows.Next() {
 		var e episode
-		if err := rows.Scan(&e.Number, &e.Name, &e.Overview, &e.AirDate); err != nil {
+		if err := rows.Scan(&e.Number, &e.Name, &e.Overview, &e.AirDate, &e.StillURL); err != nil {
 			return nil, false
 		}
 		episodes = append(episodes, e)
@@ -118,11 +120,11 @@ func getCachedEpisodes(db *sql.DB, provider, workID string, seasonNumber int) ([
 func setCachedEpisodes(db *sql.DB, provider, workID string, seasonNumber int, episodes []episode) error {
 	for _, e := range episodes {
 		_, err := db.Exec(
-			`INSERT INTO episode_cache (provider, work_id, season_number, episode_number, name, overview, air_date)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO episode_cache (provider, work_id, season_number, episode_number, name, overview, air_date, still_url)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(provider, work_id, season_number, episode_number) DO UPDATE SET
-			   name = excluded.name, overview = excluded.overview, air_date = excluded.air_date`,
-			provider, workID, seasonNumber, e.Number, e.Name, e.Overview, e.AirDate,
+			   name = excluded.name, overview = excluded.overview, air_date = excluded.air_date, still_url = excluded.still_url`,
+			provider, workID, seasonNumber, e.Number, e.Name, e.Overview, e.AirDate, e.StillURL,
 		)
 		if err != nil {
 			return err
@@ -195,6 +197,7 @@ func fetchEpisodes(tvID string, seasonNumber int) ([]episode, error) {
 			Name          string `json:"name"`
 			Overview      string `json:"overview"`
 			AirDate       string `json:"air_date"`
+			StillPath     string `json:"still_path"`
 		} `json:"episodes"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
@@ -203,8 +206,12 @@ func fetchEpisodes(tvID string, seasonNumber int) ([]episode, error) {
 
 	episodes := make([]episode, 0, len(body.Episodes))
 	for _, e := range body.Episodes {
+		still := ""
+		if e.StillPath != "" {
+			still = tmdbImageBase + e.StillPath
+		}
 		episodes = append(episodes, episode{
-			Number: e.EpisodeNumber, Name: e.Name, Overview: e.Overview, AirDate: e.AirDate,
+			Number: e.EpisodeNumber, Name: e.Name, Overview: e.Overview, AirDate: e.AirDate, StillURL: still,
 		})
 	}
 	return episodes, nil

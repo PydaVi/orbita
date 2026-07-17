@@ -29,32 +29,20 @@ JS framework, no build step) applied to what already exists here (shelf,
 work pages, notes) as the first pass, so every beta after this one inherits
 it instead of starting from scratch.
 
-## Beta 4 — profile pages
-
-**Problem:** there's no page yet that's about a *person* rather than a
-*work* — even though the shelf/notes data to build one already exists by
-this point, and now so does a real interface to build it in. Moved ahead of
-forum/events on purpose: a profile is exactly the kind of feature that's
-hard to reason about without a screen to look at, so it belongs right after
-the UI beta, not several betas later.
-
-**Rough shape:** a profile surfacing one account's shelf and notes to start.
-Forum and event activity get added to it once those betas land (5 and 6,
-below). Constellation-style visualization and the geometric archetype from
-earlier product work are explicitly a stretch goal here, not a requirement
-for the first pass.
-
-## Beta 5 — forum
+## Beta 4 — forum
 
 **Problem:** a work's page today only ever shows shelf items and notes.
 Longer-form discussion per work — posts and comments, not single notes —
-exists in earlier product work and hasn't been brought over yet.
+exists in earlier product work and hasn't been brought over yet. Back ahead
+of profile again, on reflection: the work page itself isn't finished yet
+(forum is part of it), and it makes more sense to finish that page before
+moving on to a different one.
 
 **Rough shape:** one or two more Lexicons (`social.orbita.forum.post`,
 maybe a separate `...comment`, or comments as a self-referencing record —
 undecided), same write-handler-plus-webhook-case shape as notes.
 
-## Beta 6 — events
+## Beta 5 — events
 
 **Problem:** an ephemeral, per-work group chat tied to a live/upcoming/ended
 window — also real in earlier product work, not yet here.
@@ -67,10 +55,51 @@ history after the event "ends." Worth an explicit decision here, not an
 assumption: is that acceptable (state is computed, data just persists
 quietly), or does this need real deletion/expiry logic added on top?
 
-## Beta 7 — real fan-out (relay/firehose beyond your own account)
+## Beta 6 — profile pages
+
+**Problem:** there's no page yet that's about a *person* rather than a
+*work* — even though the shelf/notes/forum/events data to build one already
+exists by this point, and now so does a real interface to build it in.
+
+**Rough shape:** a profile surfacing one account's shelf, notes, and forum
+activity in one place. Constellation-style visualization and the geometric
+archetype from earlier product work are explicitly a stretch goal here, not
+a requirement for the first pass.
+
+## Beta 7 — the shelf as a creative space
+
+**Problem:** the shelf today is just a flat, chronological list of items —
+no room for a person's own curatorial voice in how it's organized or
+presented. Flagged by the author as potentially **the apex of the whole
+product** (2026-07-17): the shelf is the one surface that's entirely about
+the person's own taste and judgment, and right now it doesn't reflect that
+at all. Deliberately placed right after profile pages, since the shelf is
+what a profile actually shows — but this is explicitly under-scoped on
+purpose. It needs its own dedicated planning conversation before it becomes
+a real `BETA{N}-PLAN.md`, not just a scope item squeezed in here.
+
+**Ideas floated, none decided yet:**
+- Custom "formations" — a way for the person to define their own ordering
+  logic for works on their shelf, the way someone might sequence a record
+  collection by criteria only they care about, instead of always falling
+  back to chronological-by-default.
+- A size limit on the shelf, mirroring a physical shelf's finite space —
+  if it's full, adding a new work means consciously choosing something to
+  remove. Untested idea: could make the shelf feel like a real curatorial
+  act instead of an unbounded list, but also could just be friction. Named
+  as "something to explore," not a decision.
+
+**Explicitly not decided:** whether either idea survives contact with real
+design work, what a "formation" even looks like concretely, whether a limit
+undermines or strengthens the product, and how (or whether) this interacts
+with the constellation visualization from earlier product work. This entry
+exists so the ambition doesn't get lost before the beta after it (fan-out)
+starts, not to pre-commit to an approach.
+
+## Beta 8 — real fan-out (relay/firehose beyond your own account)
 
 **Problem:** Tap today only ever tracks a repo after *you* log into it via
-OAuth. Everything through Beta 6 still only aggregates across accounts that
+OAuth. Everything through Beta 7 still only aggregates across accounts that
 happened to log into this appview by hand. The actual AT Protocol problem —
 discovering and indexing records from accounts that never touched this
 appview's OAuth flow — hasn't been faced yet.
@@ -81,7 +110,7 @@ probably a short seeded list (you + a few volunteers) rather than attempting
 open firehose discovery on day one, since the raw firehose is enormous and
 almost none of it is these collections.
 
-## Beta 8 — observability
+## Beta 9 — observability
 
 **Problem:** a different shape of observability problem than earlier product
 work's own version of this (which was about correlating a request across
@@ -89,7 +118,7 @@ many services you wrote yourself). Here there's still one binary — the real
 unknowns are dependencies on infrastructure nobody on this project operates:
 is Tap keeping up with the firehose or falling behind, are XRPC calls to
 other people's PDSs failing, is OAuth/DPoP session refresh failing quietly,
-and — the one that matters most once Beta 7 is real — is the relay actually
+and — the one that matters most once Beta 8 is real — is the relay actually
 handing over every record it should, or are some silently missed. Placed
 after fan-out on purpose: before that point, a handful of manually-tested
 accounts are still small enough to check by hand with `curl` and `sqlite3`,
@@ -106,15 +135,15 @@ Which exact stack (full OpenTelemetry+Jaeger+Prometheus+Alertmanager like
 earlier product work, or something lighter given this is one binary, not
 nine services) is explicitly left for when this beta actually starts.
 
-## Beta 9 — affinity across shelves
+## Beta 10 — affinity across shelves
 
 **Problem:** "who has similar taste" only becomes a real question once
-Beta 7 makes more than a couple of hand-tested accounts' data available.
+Beta 8 makes more than a couple of hand-tested accounts' data available.
 
 **Rough shape:** the same Jaccard-similarity idea already proven in earlier
 lab work, recomputed against federated data instead of rows in one database.
 
-## Beta 10 — feed
+## Beta 11 — feed
 
 **Problem:** right now there's no page that's actually useful to check
 day-to-day — everything lives on a single work's or person's page. A feed is
@@ -126,7 +155,7 @@ back to."
 chronological, deterministic, no ranking, same non-negotiable shape the
 product has always used.
 
-## Beta 11 — direct messages
+## Beta 12 — direct messages
 
 **Problem:** the odd one out on this whole list, flagged rather than
 scoped. Every other collection here is meant to be public repo data — that's
@@ -140,7 +169,7 @@ equivalent side-service, or whether DMs simply stay a feature that doesn't
 cross over to the federated product, is a real open question — worth a full
 planning conversation on its own before this beta gets scoped for real.
 
-## Beta 12 — close known gaps
+## Beta 13 — close known gaps
 
 **Problem:** loose ends already named and deliberately deferred: update/delete
 for notes (only create is wired, same gap already named for shelf items),

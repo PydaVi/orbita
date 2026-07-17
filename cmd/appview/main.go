@@ -20,6 +20,17 @@ func main() {
 		w.Write([]byte("ok"))
 	})
 
+	// Beta 3: static frontend assets, served by the same binary — no
+	// separate nginx-style service, no build step. Registered as specific
+	// patterns (not a "/" catch-all) so they can't shadow API/OAuth routes.
+	mux.Handle("GET /fonts/", http.StripPrefix("/fonts/", http.FileServer(http.Dir("frontend/fonts"))))
+	mux.HandleFunc("GET /styles.css", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "frontend/styles.css")
+	})
+	mux.HandleFunc("GET /app.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "frontend/app.js")
+	})
+
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if sessionSecret == "" {
 		log.Fatal("SESSION_SECRET not set — generate one with `openssl rand -hex 16`")
@@ -28,9 +39,9 @@ func main() {
 	setupShelf(mux, db)
 	setupWebhook(mux, db)
 	setupList(mux, db)
-	setupWorks(mux, db)
+	setupWorks(mux)
 	setupSearch(mux)
-	setupNotes(mux, db)
+	setupAPI(mux, db)
 
 	addr := ":8092" // 8000 is already taken by comum's api-gateway, running on the same machine
 	log.Printf("orbita appview listening on %s", addr)

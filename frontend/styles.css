@@ -1,0 +1,388 @@
+/* Observatório — the design system behind this product. Dark is canonical
+   and, for now, the only theme. The work page is the center of the whole
+   product, so it gets the most care: an instrument reading you look INTO,
+   not a card list you scroll past. */
+
+@font-face {
+  font-family: "Spectral";
+  src: url("/fonts/Spectral-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Spectral";
+  src: url("/fonts/Spectral-MediumItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/SpaceGrotesk-Variable.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/SpaceMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/SpaceMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --bg: #0c0c10;
+  --surface: #101015;
+  --text: #e9e5de;
+  --text-muted: #8a8894;
+  --rule: #2b2b33;
+  --signal: #d98a3d;
+
+  --font-title: "Spectral", serif;
+  --font-body: "Space Grotesk", sans-serif;
+  --font-data: "Space Mono", monospace;
+
+  --step-title: clamp(2rem, 1.35rem + 2.6vw, 3.5rem);
+  --step-h2: clamp(0.85rem, 0.8rem + 0.2vw, 0.95rem);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--signal);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+a:hover {
+  border-bottom-color: currentColor;
+}
+
+.mono {
+  font-family: var(--font-data);
+  color: var(--text-muted);
+  font-size: 0.82em;
+  letter-spacing: 0.01em;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 4rem) 1.5rem 6rem;
+}
+
+/* ---- the instrument: poster + coordinate + title, side by side on wide
+   screens, stacked on narrow ones — never hidden, only reflowed. ---- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) 1fr;
+  gap: clamp(1.25rem, 3vw, 3rem);
+  align-items: start;
+  margin-bottom: 1rem;
+}
+@media (max-width: 640px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.poster-wrap {
+  position: relative;
+  line-height: 0;
+}
+.poster-wrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.poster-wrap::before,
+.poster-wrap::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--signal);
+  opacity: 0.9;
+}
+.poster-wrap::before {
+  top: 8px;
+  left: 8px;
+  border-right: none;
+  border-bottom: none;
+}
+.poster-wrap::after {
+  bottom: 8px;
+  right: 8px;
+  border-left: none;
+  border-top: none;
+}
+
+.coord {
+  display: block;
+  margin-top: 0.6rem;
+}
+
+.work-title {
+  font-family: var(--font-title);
+  font-style: italic;
+  font-weight: 500;
+  font-size: var(--step-title);
+  line-height: 1.08;
+  margin: 0 0 0.6rem;
+  text-wrap: balance;
+}
+
+.hero-rule {
+  width: 3rem;
+  height: 1px;
+  background: var(--signal);
+  border: none;
+  margin: 0 0 1rem;
+}
+
+/* ---- rhythm for everything below the hero ---- */
+section {
+  margin-top: 2.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+section h2 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--step-h2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 1rem;
+}
+
+ul.plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ul.plain li {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+ul.plain li:last-child {
+  border-bottom: none;
+}
+ul.plain li.empty,
+.empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ---- identity: avatar circles + handles, resolved from each account's own
+   DID/PDS (see identity.go) — never a raw DID in the UI, never a
+   Bluesky-specific call. ---- */
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+}
+.avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-data);
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.shelf-control {
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.shelf-control a {
+  font-family: var(--font-data);
+  font-size: 0.85em;
+}
+
+/* ---- note cards: byline (avatar + handle + timestamp), the note text,
+   optional media (the work's poster or that episode's still) alongside it,
+   and a share affordance — each note is its own shareable, deep-linkable
+   thing, not just a line in a list. ---- */
+li.note {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+li.note.highlight {
+  outline: 1px solid var(--signal);
+  outline-offset: 6px;
+}
+.note-media {
+  flex-shrink: 0;
+  width: 64px;
+}
+.note-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+}
+.note-main {
+  flex: 1;
+  min-width: 0;
+}
+.note-byline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.note-text {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.share-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-data);
+  font-size: 0.85em;
+  padding: 0.2rem 0.4rem;
+}
+.share-btn:hover {
+  color: var(--signal);
+}
+
+/* ---- episode rows: a plain link (thumbnail + name + air date) inside an
+   expanded season — clicking one navigates to that episode's own page,
+   where its discussion actually lives. ---- */
+.episode-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  color: var(--text);
+  border-bottom: none;
+}
+.episode-link:hover {
+  color: var(--signal);
+}
+.episode-still {
+  width: 64px;
+  height: 36px;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+.episode-summary-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- seasons: native <details>, restyled — no JS accordion framework,
+   keyboard-accessible for free. Transitions only on the marker's rotation,
+   a state change, not decorative motion. ---- */
+details.season {
+  border-bottom: 1px solid var(--rule);
+}
+details.season:last-child {
+  border-bottom: none;
+}
+details > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid var(--signal);
+  border-bottom: 1px solid var(--signal);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+details[open] > summary::before {
+  transform: rotate(45deg);
+}
+details.episode {
+  padding-left: 1rem;
+}
+.season-body,
+.episode-body {
+  padding: 0 0 1rem 1rem;
+}
+.episode-body p {
+  margin-top: 0;
+}
+
+textarea {
+  width: 100%;
+  min-height: 4rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.6rem 0.7rem;
+  font-family: var(--font-body);
+  resize: vertical;
+}
+textarea:focus,
+button:focus-visible {
+  outline: 1px solid var(--signal);
+  outline-offset: 2px;
+}
+
+button {
+  margin-top: 0.6rem;
+  background: transparent;
+  color: var(--signal);
+  border: 1px solid var(--signal);
+  border-radius: 2px;
+  padding: 0.45rem 1rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--signal);
+  color: var(--bg);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
