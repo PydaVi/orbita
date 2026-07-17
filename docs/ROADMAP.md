@@ -14,42 +14,57 @@ screen to look at. Every beta below is built on top of that real interface
 now, not plain HTML. What follows is what's left before there's a beta
 worth actually presenting to someone outside this project.
 
-## Beta 4 — forum
+## Beta 4 — basic site layout
 
-**Problem:** a work's page today only ever shows shelf items and notes.
-Longer-form discussion per work — posts and comments, not single notes —
-exists in earlier product work and hasn't been brought over yet. Back ahead
-of profile again, on reflection: the work page itself isn't finished yet
-(forum is part of it), and it makes more sense to finish that page before
-moving on to a different one.
+**Problem:** there's no shared frame yet — the work page and the search
+page are each their own island, with no persistent navigation between
+them, and no place for a feed or a profile to live once they exist.
+Reprioritized (2026-07-17): the author called forum and events less
+central to the product than the work, the shelf, feeds, and profile — so
+this beta exists to give those four a real home before building the two
+that are still missing (feed, profile), rather than adding more isolated
+pages the way forum/events would have.
 
-**Rough shape:** one or two more Lexicons (`social.orbita.forum.post`,
-maybe a separate `...comment`, or comments as a self-referencing record —
-undecided), same write-handler-plus-webhook-case shape as notes.
+**Rough shape:** a persistent topbar (the "ÓRBITA" wordmark/mark, nav
+between Shelf/Feed/Profile) that every page mounts into, likely a
+`renderShell()` helper in `common.js` so it's built once and reused, not
+copy-pasted per page. Feed and Profile can be placeholder stubs here —
+the point of this beta is the frame existing, not every section being
+real yet.
 
-## Beta 5 — events
-
-**Problem:** an ephemeral, per-work group chat tied to a live/upcoming/ended
-window — also real in earlier product work, not yet here.
-
-**Rough shape:** the tricky part isn't the Lexicon, it's the ephemerality.
-Earlier product work computes live/upcoming/ended state on read, never
-stores it — but AT Protocol repo records don't expire on their own, so a
-"live chat" written as ordinary records stays sitting in the PDS as public
-history after the event "ends." Worth an explicit decision here, not an
-assumption: is that acceptable (state is computed, data just persists
-quietly), or does this need real deletion/expiry logic added on top?
-
-## Beta 6 — profile pages
+## Beta 5 — profile pages
 
 **Problem:** there's no page yet that's about a *person* rather than a
-*work* — even though the shelf/notes/forum/events data to build one already
-exists by this point, and now so does a real interface to build it in.
+*work* — even though the shelf/notes data to build one already exists by
+this point, and now so does a real interface (and, after Beta 4, a real
+site frame) to build it in.
 
-**Rough shape:** a profile surfacing one account's shelf, notes, and forum
-activity in one place. Constellation-style visualization and the geometric
-archetype from earlier product work are explicitly a stretch goal here, not
-a requirement for the first pass.
+**Rough shape:** a profile surfacing one account's shelf and notes to
+start. Forum/events activity gets added if/when those betas land later.
+Constellation-style visualization and the geometric archetype from earlier
+product work are explicitly a stretch goal here, not a requirement for the
+first pass.
+
+## Beta 6 — feed
+
+**Problem:** right now there's no page that's actually useful to check
+day-to-day — everything lives on a single work's or person's page. A feed
+is what turns this from "a place to look something up" into "a place to
+come back to." Reprioritized ahead of forum/events/fan-out (2026-07-17) as
+one of the product's four core surfaces (work, shelf, feed, profile).
+
+**Rough shape:** reuse the existing Bluesky follow graph
+(`app.bsky.graph.follow`) instead of inventing a parallel "follow" concept
+— chronological, deterministic, no ranking, same non-negotiable shape the
+product has always used. Only pulls from `social.orbita.note` — forum
+comments, whenever they exist, are deliberately **not** feed material
+(confirmed 2026-07-17): a note is a voice meant to circulate to people who
+follow you, a forum comment is a conversation confined to the work's own
+space. Open question carried over from before this reprioritization: at
+what scale is this actually meaningful before real fan-out (below) exists —
+likely starts scoped to accounts that have already logged into this
+appview, same small-scale aggregation every beta so far has used, with
+true cross-network discovery arriving whenever fan-out does.
 
 ## Beta 7 — the shelf as a creative space
 
@@ -58,10 +73,9 @@ no room for a person's own curatorial voice in how it's organized or
 presented. Flagged by the author as potentially **the apex of the whole
 product** (2026-07-17): the shelf is the one surface that's entirely about
 the person's own taste and judgment, and right now it doesn't reflect that
-at all. Deliberately placed right after profile pages, since the shelf is
-what a profile actually shows — but this is explicitly under-scoped on
-purpose. It needs its own dedicated planning conversation before it becomes
-a real `BETA{N}-PLAN.md`, not just a scope item squeezed in here.
+at all. This is explicitly under-scoped on purpose. It needs its own
+dedicated planning conversation before it becomes a real `BETA{N}-PLAN.md`,
+not just a scope item squeezed in here.
 
 **Ideas floated, refined over two conversations (2026-07-17):**
 - Custom labels the person defines themselves — not fixed system
@@ -99,13 +113,42 @@ own AT-URI to share) or something simpler layered onto `shelf.item` itself;
 whether a shelf size limit survives contact with real use; how (or whether)
 any of this interacts with the constellation visualization from earlier
 product work. This entry exists so the ambition and the shape it's taking
-don't get lost before the beta after it (fan-out) starts, not to pre-commit
+don't get lost before the rest of the roadmap moves on, not to pre-commit
 to an implementation.
 
-## Beta 8 — real fan-out (relay/firehose beyond your own account)
+## Beta 8 — forum
+
+**Problem:** a work's page today only ever shows shelf items and notes.
+Longer-form discussion per work — posts and comments, not single notes —
+exists in earlier product work and hasn't been brought over yet. Demoted
+below the four core surfaces (2026-07-17): still real, just less central
+to the product than work/shelf/feed/profile.
+
+**Rough shape:** one or two more Lexicons (`social.orbita.forum.post`,
+maybe a separate `...comment`, or comments as a self-referencing record —
+undecided), same write-handler-plus-webhook-case shape as notes. Like
+notes vs. forum comments (see Beta 6): confirmed **not** feed material —
+a forum conversation is confined to the work's own space, it doesn't
+circulate to followers the way a note does.
+
+## Beta 9 — events
+
+**Problem:** an ephemeral, per-work group chat tied to a live/upcoming/ended
+window — also real in earlier product work, not yet here. Demoted
+alongside forum for the same reason (2026-07-17).
+
+**Rough shape:** the tricky part isn't the Lexicon, it's the ephemerality.
+Earlier product work computes live/upcoming/ended state on read, never
+stores it — but AT Protocol repo records don't expire on their own, so a
+"live chat" written as ordinary records stays sitting in the PDS as public
+history after the event "ends." Worth an explicit decision here, not an
+assumption: is that acceptable (state is computed, data just persists
+quietly), or does this need real deletion/expiry logic added on top?
+
+## Beta 10 — real fan-out (relay/firehose beyond your own account)
 
 **Problem:** Tap today only ever tracks a repo after *you* log into it via
-OAuth. Everything through Beta 7 still only aggregates across accounts that
+OAuth. Everything through Beta 9 still only aggregates across accounts that
 happened to log into this appview by hand. The actual AT Protocol problem —
 discovering and indexing records from accounts that never touched this
 appview's OAuth flow — hasn't been faced yet.
@@ -116,7 +159,7 @@ probably a short seeded list (you + a few volunteers) rather than attempting
 open firehose discovery on day one, since the raw firehose is enormous and
 almost none of it is these collections.
 
-## Beta 9 — observability
+## Beta 11 — observability
 
 **Problem:** a different shape of observability problem than earlier product
 work's own version of this (which was about correlating a request across
@@ -124,11 +167,11 @@ many services you wrote yourself). Here there's still one binary — the real
 unknowns are dependencies on infrastructure nobody on this project operates:
 is Tap keeping up with the firehose or falling behind, are XRPC calls to
 other people's PDSs failing, is OAuth/DPoP session refresh failing quietly,
-and — the one that matters most once Beta 8 is real — is the relay actually
-handing over every record it should, or are some silently missed. Placed
-after fan-out on purpose: before that point, a handful of manually-tested
-accounts are still small enough to check by hand with `curl` and `sqlite3`,
-same as every beta so far.
+and — the one that matters most once Beta 10 is real — is the relay
+actually handing over every record it should, or are some silently missed.
+Placed after fan-out on purpose: before that point, a handful of
+manually-tested accounts are still small enough to check by hand with
+`curl` and `sqlite3`, same as every beta so far.
 
 **Rough shape:** at least one well-structured Grafana is a firm requirement,
 not just raw metrics nobody looks at. Two categories of thing to show:
@@ -141,27 +184,15 @@ Which exact stack (full OpenTelemetry+Jaeger+Prometheus+Alertmanager like
 earlier product work, or something lighter given this is one binary, not
 nine services) is explicitly left for when this beta actually starts.
 
-## Beta 10 — affinity across shelves
+## Beta 12 — affinity across shelves
 
 **Problem:** "who has similar taste" only becomes a real question once
-Beta 8 makes more than a couple of hand-tested accounts' data available.
+Beta 10 makes more than a couple of hand-tested accounts' data available.
 
 **Rough shape:** the same Jaccard-similarity idea already proven in earlier
 lab work, recomputed against federated data instead of rows in one database.
 
-## Beta 11 — feed
-
-**Problem:** right now there's no page that's actually useful to check
-day-to-day — everything lives on a single work's or person's page. A feed is
-what turns this from "a place to look something up" into "a place to come
-back to."
-
-**Rough shape:** reuse the existing Bluesky follow graph
-(`app.bsky.graph.follow`) instead of inventing a parallel "follow" concept —
-chronological, deterministic, no ranking, same non-negotiable shape the
-product has always used.
-
-## Beta 12 — direct messages
+## Beta 13 — direct messages
 
 **Problem:** the odd one out on this whole list, flagged rather than
 scoped. Every other collection here is meant to be public repo data — that's
@@ -175,7 +206,7 @@ equivalent side-service, or whether DMs simply stay a feature that doesn't
 cross over to the federated product, is a real open question — worth a full
 planning conversation on its own before this beta gets scoped for real.
 
-## Beta 13 — close known gaps
+## Beta 14 — close known gaps
 
 **Problem:** loose ends already named and deliberately deferred: update/delete
 for notes (only create is wired, same gap already named for shelf items),
