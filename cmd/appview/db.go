@@ -97,9 +97,12 @@ type ShelfItem struct {
 	IndexedAt string
 }
 
-func listShelfItems(db *sql.DB) ([]ShelfItem, error) {
+// listShelfItemsByAccount backs the real "my shelf" page — an earlier,
+// unscoped "everyone's shelf" version never served any real purpose and
+// was removed (see api.go's GET /api/shelf).
+func listShelfItemsByAccount(db *sql.DB, did string) ([]ShelfItem, error) {
 	rows, err := db.Query(`SELECT uri, cid, did, provider, work_id, created_at, indexed_at
-	                        FROM shelf_items ORDER BY created_at DESC`)
+	                        FROM shelf_items WHERE did = ? ORDER BY created_at DESC`, did)
 	if err != nil {
 		return nil, err
 	}

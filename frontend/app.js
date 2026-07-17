@@ -9,8 +9,8 @@
 // in via textContent, never innerHTML — nothing written by a stranger's
 // PDS can inject markup here.
 
-// el(), fetchJSON(), and currentViewer() live in common.js, loaded before
-// this file.
+// el(), fetchJSON(), currentViewer(), displayHandle(), avatarEl(), and
+// rkeyOf() live in common.js, loaded before this file.
 
 // Purely decorative, deterministic per work id, no backend data involved —
 // the "catalog coordinate" motif from this product's own visual language.
@@ -23,34 +23,6 @@ function pseudoCoord(seed) {
   const min = (h >>> 5) % 60;
   const dec = (h >>> 11) % 90;
   return `α ${String(ra).padStart(2, "0")}h${String(min).padStart(2, "0")}m · δ +${String(dec).padStart(2, "0")}°`;
-}
-
-// The API falls back to the raw DID as "handle" when it genuinely can't be
-// resolved (an account that doesn't exist on the real network — a local
-// sandbox test account, for instance). Truncated here rather than shown in
-// full: still honest that it's unresolved, without a long did:plc:... string
-// breaking the layout.
-function displayHandle(handle) {
-  if (handle && handle.startsWith("did:") && handle.length > 20) {
-    return handle.slice(0, 16) + "…";
-  }
-  return handle;
-}
-
-// Handle/avatar come resolved from the API (see identity.go) — this just
-// renders them: a real image if one resolved, otherwise a plain initial in
-// a circle, never a broken <img> and never a raw DID.
-function avatarEl(handle, avatarUrl) {
-  if (avatarUrl) {
-    return el("img", { class: "avatar", src: avatarUrl, alt: "" });
-  }
-  const initial = (handle || "?").replace("did:", "").charAt(0).toUpperCase();
-  return el("span", { class: "avatar avatar-fallback", text: initial || "?" });
-}
-
-function rkeyOf(uri) {
-  const parts = uri.split("/");
-  return parts[parts.length - 1];
 }
 
 // A shared link to a specific note (#note-{rkey}) scrolls to and

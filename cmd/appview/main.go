@@ -38,6 +38,7 @@ func main() {
 	serveFrontend("/search.js", "search.js")
 	serveFrontend("/feed.js", "feed.js")
 	serveFrontend("/profile.js", "profile.js")
+	serveFrontend("/shelf.js", "shelf.js")
 
 	// Beta 4: the basic site layout — Feed and Profile exist as real pages
 	// (with a real nav to reach them) even though their content is a
@@ -52,7 +53,7 @@ func main() {
 	setupOAuth(mux, sessionSecret)
 	setupShelf(mux, db)
 	setupWebhook(mux, db)
-	setupList(mux, db)
+	setupList(mux)
 	setupWorks(mux)
 	setupSearch(mux)
 	setupAPI(mux, db)

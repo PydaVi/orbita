@@ -5,7 +5,7 @@
 // el(), fetchJSON(), and currentViewer() come from common.js.
 
 async function init() {
-  const app = renderShell("shelf");
+  const app = renderShell(null);
   app.innerHTML = "";
 
   const viewer = await currentViewer();

@@ -25,6 +25,18 @@ type accountEntry struct {
 	AddedAt   string `json:"addedAt"`
 }
 
+type shelfEntry struct {
+	URI       string `json:"uri"`
+	Provider  string `json:"provider"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Poster    string `json:"poster,omitempty"`
+	DID       string `json:"did"`
+	Handle    string `json:"handle"`
+	AvatarURL string `json:"avatarUrl,omitempty"`
+	AddedAt   string `json:"addedAt"`
+}
+
 type noteEntry struct {
 	URI       string `json:"uri"`
 	DID       string `json:"did"`
@@ -191,6 +203,37 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	})
+
+	// Beta 0's "prove Tap indexed it" listing showed everyone's shelf
+	// activity — reconsidered mid-Beta-4 (2026-07-17): unscoped, that page
+	// serves none of the product's four core surfaces, it's not "your
+	// shelf" (Beta 5, profile) or a followed-accounts feed (Beta 6). What
+	// has a real purpose is your OWN shelf as a plain list, so that's what
+	// this became instead — auth required, scoped to the viewer's own DID.
+	mux.HandleFunc("GET /api/shelf", func(w http.ResponseWriter, r *http.Request) {
+		did, _ := currentSessionDID(r)
+		if did == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		items, err := listShelfItemsByAccount(db, did.String())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		entries := make([]shelfEntry, 0, len(items))
+		for _, it := range items {
+			title, poster := displayWork(db, it.Provider, it.WorkID)
+			handle, avatar := resolveIdentity(r.Context(), db, it.DID)
+			entries = append(entries, shelfEntry{
+				URI: it.URI, Provider: it.Provider, ID: it.WorkID, Title: title, Poster: poster,
+				DID: it.DID, Handle: handle, AvatarURL: avatar, AddedAt: it.CreatedAt,
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(entries)
 	})
 
 	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {

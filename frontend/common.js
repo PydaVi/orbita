@@ -33,6 +33,34 @@ async function currentViewer() {
   }
 }
 
+function rkeyOf(uri) {
+  const parts = uri.split("/");
+  return parts[parts.length - 1];
+}
+
+// The API falls back to the raw DID as "handle" when it genuinely can't be
+// resolved (an account that doesn't exist on the real network — a local
+// sandbox test account, for instance). Truncated here rather than shown in
+// full: still honest that it's unresolved, without a long did:plc:... string
+// breaking the layout.
+function displayHandle(handle) {
+  if (handle && handle.startsWith("did:") && handle.length > 20) {
+    return handle.slice(0, 16) + "…";
+  }
+  return handle;
+}
+
+// Handle/avatar come resolved from the API (see identity.go) — this just
+// renders them: a real image if one resolved, otherwise a plain initial in
+// a circle, never a broken <img> and never a raw DID.
+function avatarEl(handle, avatarUrl) {
+  if (avatarUrl) {
+    return el("img", { class: "avatar", src: avatarUrl, alt: "" });
+  }
+  const initial = (handle || "?").replace("did:", "").charAt(0).toUpperCase();
+  return el("span", { class: "avatar avatar-fallback", text: initial || "?" });
+}
+
 // The mark: "a body orbiting another — the metric of the relationship, not
 // of the user." A thin ring (the orbit) with one amber point offset near
 // the edge (the affinity), never centered. Static, no user data — safe as
@@ -62,13 +90,13 @@ function renderShell(active) {
   mount.innerHTML = "";
 
   const topbar = el("header", { class: "topbar" }, [
-    el("a", { href: "/search", class: "brand" }, [orbitalMark(), el("span", { class: "wordmark", text: "ÓRBITA" })]),
+    el("a", { href: "/shelf", class: "brand" }, [orbitalMark(), el("span", { class: "wordmark", text: "ÓRBITA" })]),
   ]);
 
   const navItem = (label, href, key) =>
     el("a", { href, class: key === active ? "nav-link active" : "nav-link", text: label });
   const sidebar = el("nav", { class: "sidebar" }, [
-    navItem("Shelf", "/search", "shelf"),
+    navItem("Shelf", "/shelf", "shelf"),
     navItem("Feed", "/feed", "feed"),
     navItem("Profile", "/profile", "profile"),
   ]);
