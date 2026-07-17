@@ -47,27 +47,39 @@ function orbitalMark() {
   return wrap;
 }
 
-// Every page calls this first, with which nav item (if any) is current —
-// builds the persistent topbar into #shell-mount and returns the #app
-// element the page renders its own content into. Kept as a mount-point
-// injection rather than replacing document.body wholesale, so each page's
-// own <script> tags are untouched.
+// Every page calls this first, with which nav item (if any) is current.
+// Builds the persistent topbar (mark + wordmark only) and the 3-column
+// layout — sidebar (text nav) / center / right column — into #shell-mount,
+// then moves the page's own #app element into the center column and
+// returns it. A DOM node handed to appendChild() that's already attached
+// elsewhere gets moved, not duplicated, so #app keeps whatever the page's
+// own script has already put into it.
 function renderShell(active) {
   const mount = document.getElementById("shell-mount");
-  if (mount) {
-    mount.innerHTML = "";
-    const navItem = (label, href, key) =>
-      el("a", { href, class: key === active ? "nav-link active" : "nav-link", text: label });
-    mount.appendChild(
-      el("header", { class: "topbar" }, [
-        el("a", { href: "/search", class: "brand" }, [orbitalMark(), el("span", { class: "wordmark", text: "ÓRBITA" })]),
-        el("nav", { class: "topnav" }, [
-          navItem("Shelf", "/search", "shelf"),
-          navItem("Feed", "/feed", "feed"),
-          navItem("Profile", "/profile", "profile"),
-        ]),
-      ])
-    );
-  }
-  return document.getElementById("app");
+  const app = document.getElementById("app");
+  if (!mount || !app) return app;
+
+  mount.innerHTML = "";
+
+  const topbar = el("header", { class: "topbar" }, [
+    el("a", { href: "/search", class: "brand" }, [orbitalMark(), el("span", { class: "wordmark", text: "ÓRBITA" })]),
+  ]);
+
+  const navItem = (label, href, key) =>
+    el("a", { href, class: key === active ? "nav-link active" : "nav-link", text: label });
+  const sidebar = el("nav", { class: "sidebar" }, [
+    navItem("Shelf", "/search", "shelf"),
+    navItem("Feed", "/feed", "feed"),
+    navItem("Profile", "/profile", "profile"),
+  ]);
+
+  const rightcol = el("aside", { class: "rightcol" }, [
+    el("p", { class: "mono", text: "— nothing here yet —" }),
+  ]);
+
+  const layout = el("div", { class: "layout" }, [sidebar, app, rightcol]);
+
+  mount.appendChild(topbar);
+  mount.appendChild(layout);
+  return app;
 }
