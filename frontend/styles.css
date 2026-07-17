@@ -78,6 +78,58 @@ a:hover {
   border-bottom-color: currentColor;
 }
 
+/* ---- the topbar: persistent across every page (see renderShell() in
+   common.js) — the mark, the wordmark, and navigation between the
+   product's core surfaces. Never a sidebar of its own content, no
+   trending, no counts — just where you are and where else you can go. ---- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: none;
+}
+.brand:hover {
+  border-bottom: none;
+}
+.logo-mark {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.wordmark {
+  font-family: var(--font-title);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.1rem;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.topnav {
+  display: flex;
+  gap: 1.5rem;
+}
+.nav-link {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  border-bottom: none;
+}
+.nav-link:hover {
+  color: var(--text);
+}
+.nav-link.active {
+  color: var(--signal);
+}
+
 .mono {
   font-family: var(--font-data);
   color: var(--text-muted);

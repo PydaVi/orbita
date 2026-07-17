@@ -5,32 +5,15 @@ with real scope, open questions, and a status once we actually start it — same
 process as Beta 0/1/2. This file exists so the order and the "why this, why
 now" of the whole arc is visible in one place, before any of it is detailed.
 
-Beta 0 through 3 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
+Beta 0 through 4 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
 [`BETA1-PLAN.md`](BETA1-PLAN.md), [`BETA2-PLAN.md`](BETA2-PLAN.md),
-[`BETA3-PLAN.md`](BETA3-PLAN.md). Real UI (Beta 3) landed ahead of
-everything else on this list — not last, as originally sketched — precisely
-because a profile (Beta 6, still ahead) is hard to reason about without a
-screen to look at. Every beta below is built on top of that real interface
-now, not plain HTML. What follows is what's left before there's a beta
+[`BETA3-PLAN.md`](BETA3-PLAN.md), [`BETA4-PLAN.md`](BETA4-PLAN.md). Real UI
+(Beta 3) landed ahead of everything else on this list — not last, as
+originally sketched — precisely because a profile (Beta 5, next) is hard
+to reason about without a screen to look at, and Beta 4 gave every page
+from here on a persistent shell (topbar, nav) to live inside instead of
+being its own island. What follows is what's left before there's a beta
 worth actually presenting to someone outside this project.
-
-## Beta 4 — basic site layout
-
-**Problem:** there's no shared frame yet — the work page and the search
-page are each their own island, with no persistent navigation between
-them, and no place for a feed or a profile to live once they exist.
-Reprioritized (2026-07-17): the author called forum and events less
-central to the product than the work, the shelf, feeds, and profile — so
-this beta exists to give those four a real home before building the two
-that are still missing (feed, profile), rather than adding more isolated
-pages the way forum/events would have.
-
-**Rough shape:** a persistent topbar (the "ÓRBITA" wordmark/mark, nav
-between Shelf/Feed/Profile) that every page mounts into, likely a
-`renderShell()` helper in `common.js` so it's built once and reused, not
-copy-pasted per page. Feed and Profile can be placeholder stubs here —
-the point of this beta is the frame existing, not every section being
-real yet.
 
 ## Beta 5 — profile pages
 

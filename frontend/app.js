@@ -65,7 +65,7 @@ function scrollToHash() {
 }
 
 async function loadPage() {
-  const app = document.getElementById("app");
+  const app = renderShell(null);
   const match = window.location.pathname.match(
     /^\/works\/([^/]+)\/([^/]+)(?:\/season\/(\d+)(?:\/episode\/(\d+))?)?$/
   );

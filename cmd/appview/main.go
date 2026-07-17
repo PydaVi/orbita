@@ -20,22 +20,30 @@ func main() {
 		w.Write([]byte("ok"))
 	})
 
-	// Beta 3: static frontend assets, served by the same binary — no
+	// Beta 3/4: static frontend assets, served by the same binary — no
 	// separate nginx-style service, no build step. Registered as specific
 	// patterns (not a "/" catch-all) so they can't shadow API/OAuth routes.
+	// serveFrontend keeps this list from growing one hand-written closure
+	// per file as pages keep being added (feed, profile, and whatever
+	// comes after).
+	serveFrontend := func(urlPath, file string) {
+		mux.HandleFunc("GET "+urlPath, func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "frontend/"+file)
+		})
+	}
 	mux.Handle("GET /fonts/", http.StripPrefix("/fonts/", http.FileServer(http.Dir("frontend/fonts"))))
-	mux.HandleFunc("GET /styles.css", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "frontend/styles.css")
-	})
-	mux.HandleFunc("GET /app.js", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "frontend/app.js")
-	})
-	mux.HandleFunc("GET /common.js", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "frontend/common.js")
-	})
-	mux.HandleFunc("GET /search.js", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "frontend/search.js")
-	})
+	serveFrontend("/styles.css", "styles.css")
+	serveFrontend("/common.js", "common.js")
+	serveFrontend("/app.js", "app.js")
+	serveFrontend("/search.js", "search.js")
+	serveFrontend("/feed.js", "feed.js")
+	serveFrontend("/profile.js", "profile.js")
+
+	// Beta 4: the basic site layout — Feed and Profile exist as real pages
+	// (with a real nav to reach them) even though their content is a
+	// placeholder until Beta 5/6.
+	serveFrontend("/feed", "feed.html")
+	serveFrontend("/profile", "profile.html")
 
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if sessionSecret == "" {
