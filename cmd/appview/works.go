@@ -54,6 +54,10 @@ func setupWorks(mux *http.ServeMux, db *sql.DB) {
 			}
 			fmt.Fprint(w, "</ul>")
 		}
+
+		// Beta 2: notes about the work as a whole, not anchored to any
+		// episode — season/episode both nil.
+		renderNotesSection(w, db, provider, id, nil, nil)
 	})
 
 	mux.HandleFunc("GET /works/{provider}/{id}/season/{season}", func(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +121,6 @@ func setupWorks(mux *http.ServeMux, db *sql.DB) {
 			html.EscapeString(title), seasonNum, episodeNum, html.EscapeString(ep.Name),
 			html.EscapeString(ep.Overview), html.EscapeString(ep.AirDate))
 
-		// Notes go here next — not built yet.
-		fmt.Fprint(w, "<p><em>Notes for this episode: not built yet.</em></p>")
+		renderNotesSection(w, db, provider, id, &seasonNum, &episodeNum)
 	})
 }

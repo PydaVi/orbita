@@ -24,6 +24,9 @@ type tapRecordData struct {
 	CID        string `json:"cid"`
 	Record     struct {
 		CreatedAt string `json:"createdAt"`
+		Text      string `json:"text"`
+		Season    *int   `json:"season"`
+		Episode   *int   `json:"episode"`
 		Work      struct {
 			Provider string `json:"provider"`
 			ID       string `json:"id"`
@@ -31,6 +34,9 @@ type tapRecordData struct {
 	} `json:"record"`
 }
 
+// Beta 2: indexes two collections now, not one. Same "only create,
+// nothing else yet" limitation as before — a real gap for delete/update
+// on notes, matching the same gap already named for shelf_items.
 func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("POST /webhook", func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -49,16 +55,26 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
-		if evt.Type == "record" && evt.Record != nil &&
-			evt.Record.Collection == "social.orbita.shelf.item" &&
-			evt.Record.Action == "create" {
+		if evt.Type == "record" && evt.Record != nil && evt.Record.Action == "create" {
 			rec := evt.Record
 			uri := fmt.Sprintf("at://%s/%s/%s", rec.DID, rec.Collection, rec.Rkey)
-			err := insertShelfItem(db, uri, rec.CID, rec.DID, rec.Record.Work.Provider, rec.Record.Work.ID, rec.Record.CreatedAt)
-			if err != nil {
-				log.Printf("failed to index %s: %v", uri, err)
-			} else {
-				log.Printf("indexed: %s", uri)
+
+			switch rec.Collection {
+			case "social.orbita.shelf.item":
+				err := insertShelfItem(db, uri, rec.CID, rec.DID, rec.Record.Work.Provider, rec.Record.Work.ID, rec.Record.CreatedAt)
+				if err != nil {
+					log.Printf("failed to index %s: %v", uri, err)
+				} else {
+					log.Printf("indexed: %s", uri)
+				}
+			case "social.orbita.note":
+				err := insertNote(db, uri, rec.CID, rec.DID, rec.Record.Work.Provider, rec.Record.Work.ID,
+					rec.Record.Season, rec.Record.Episode, rec.Record.Text, rec.Record.CreatedAt)
+				if err != nil {
+					log.Printf("failed to index %s: %v", uri, err)
+				} else {
+					log.Printf("indexed: %s", uri)
+				}
 			}
 		}
 

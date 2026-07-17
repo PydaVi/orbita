@@ -30,6 +30,7 @@ func main() {
 	setupList(mux, db)
 	setupWorks(mux, db)
 	setupSearch(mux)
+	setupNotes(mux, db)
 
 	addr := ":8092" // 8000 is already taken by comum's api-gateway, running on the same machine
 	log.Printf("orbita appview listening on %s", addr)

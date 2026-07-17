@@ -29,7 +29,14 @@ func setupOAuth(mux *http.ServeMux, sessionSecret string) {
 	// with "ScopeMissingError: Missing required scope
 	// repo:social.orbita.shelf.item?action=delete" against the actual
 	// Bluesky server, because Beta 0 only ever requested "create".
-	scopes := []string{"atproto", "repo:social.orbita.shelf.item?action=create&action=delete"}
+	// Beta 2: a separate repo scope entry for the second collection —
+	// each collection gets its own "repo:" scope, they don't combine
+	// into one string.
+	scopes := []string{
+		"atproto",
+		"repo:social.orbita.shelf.item?action=create&action=delete",
+		"repo:social.orbita.note?action=create",
+	}
 
 	// NewLocalhostConfig uses the spec's local-development exception —
 	// client_id becomes a special "http://localhost", with no public

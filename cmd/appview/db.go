@@ -58,6 +58,9 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(episodeCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating episode_cache schema: %w", err)
 	}
+	if _, err := db.Exec(notesSchema); err != nil {
+		return nil, fmt.Errorf("creating notes schema: %w", err)
+	}
 	return db, nil
 }
 
