@@ -469,13 +469,14 @@ li.note.highlight {
   margin: 0.5rem 0;
 }
 .action-btn {
+  display: inline-flex;
+  align-items: center;
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-family: var(--font-body);
-  font-size: 0.85em;
-  padding: 0.2rem 0;
+  padding: 0.2rem;
+  line-height: 0;
 }
 .action-btn:hover {
   color: var(--signal);
@@ -483,6 +484,9 @@ li.note.highlight {
 .action-btn:disabled {
   color: var(--signal);
   cursor: default;
+}
+.action-icon svg {
+  display: block;
 }
 .reply-box textarea {
   margin-top: 0.5rem;

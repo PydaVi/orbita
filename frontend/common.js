@@ -75,6 +75,31 @@ function orbitalMark() {
   return wrap;
 }
 
+// Reply and repost icons — plain line glyphs, no text label, matching the
+// same restrained visual language as the orbital mark. currentColor so
+// they pick up whatever color the surrounding button state gives them
+// (muted normally, signal-colored once "reposted" via :disabled).
+function replyIcon() {
+  const wrap = document.createElement("span");
+  wrap.className = "action-icon";
+  wrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+  </svg>`;
+  return wrap;
+}
+
+function repostIcon() {
+  const wrap = document.createElement("span");
+  wrap.className = "action-icon";
+  wrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M17 1l4 4-4 4"></path>
+    <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+    <path d="M7 23l-4-4 4-4"></path>
+    <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+  </svg>`;
+  return wrap;
+}
+
 // renderReplyItem is one level of nesting, read-only for this first pass —
 // no reply/RT button on a reply itself (see notes.go's own comment on
 // why: replying-to-a-reply is stored correctly at the data layer, it just
@@ -103,7 +128,9 @@ function renderReplyItem(rep) {
 function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
   const row = el("div", { class: "note-actions" });
 
-  const rtBtn = el("button", { type: "button", class: "action-btn", text: "RT" });
+  const rtBtn = el("button", { type: "button", class: "action-btn", "aria-label": "Repost", title: "Repost" }, [
+    repostIcon(),
+  ]);
   rtBtn.addEventListener("click", async () => {
     rtBtn.disabled = true;
     try {
@@ -112,7 +139,8 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uri: n.uri, cid: n.cid }),
       });
-      rtBtn.textContent = "reposted ✓";
+      rtBtn.title = "Reposted";
+      rtBtn.setAttribute("aria-label", "Reposted");
     } catch (err) {
       alert(`failed to repost: ${err}`);
       rtBtn.disabled = false;
@@ -120,7 +148,9 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
   });
   row.appendChild(rtBtn);
 
-  const replyBtn = el("button", { type: "button", class: "action-btn", text: "reply" });
+  const replyBtn = el("button", { type: "button", class: "action-btn", "aria-label": "Reply", title: "Reply" }, [
+    replyIcon(),
+  ]);
   const replyBox = el("div", { class: "reply-box", style: "display:none" });
   const textarea = el("textarea", { placeholder: "write a reply..." });
   const submitBtn = el("button", { type: "button", text: "Reply" });
