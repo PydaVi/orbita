@@ -83,11 +83,33 @@ Lexicon record (an ordered list of work references, its own name/title, its
 own AT-URI to share) or something simpler layered onto `shelf.item` itself;
 whether a shelf size limit survives contact with real use; how (or whether)
 any of this interacts with the constellation visualization from earlier
-product work. This entry exists so the ambition and the shape it's taking
-don't get lost before the rest of the roadmap moves on, not to pre-commit
-to an implementation.
+product work (see Beta 8, next). This entry exists so the ambition and the
+shape it's taking don't get lost before the rest of the roadmap moves on,
+not to pre-commit to an implementation.
 
-## Beta 8 — forum
+## Beta 8 — constellation and archetype on the profile
+
+**Problem:** flagged in review after Beta 5 shipped (2026-07-17): profile
+pages don't yet have the constellation-style visualization or the
+geometric archetype from earlier product work — both were named as
+explicit stretch goals in Beta 5, not gaps to fix retroactively. Placed
+right after the shelf-as-creative-space beta on purpose: what a
+constellation actually visualizes (raw shelf items? label-playlists? both,
+differently?) may depend on how that beta resolves the shelf's own shape,
+so building this first risked visualizing something about to change
+underneath it.
+
+**Rough shape:** the force-layout idea from earlier product work —
+repulsion, attraction, and global anchors by tag/type/decade, so shelves
+with similar taste light up the same region of the drawing across
+different profiles — recomputed here against this project's own data
+shape (and, depending on how Beta 7 lands, possibly against label-
+playlists instead of a flat shelf). Archetype is a geometric signature
+derived from the shape of one person's own constellation (thematic
+dispersion + cohesion) — it can't be built before the constellation itself
+exists, since it's computed from it, not alongside it.
+
+## Beta 9 — forum
 
 **Problem:** a work's page today only ever shows shelf items and notes.
 Longer-form discussion per work — posts and comments, not single notes —
@@ -102,7 +124,7 @@ notes vs. forum comments (see Beta 6): confirmed **not** feed material —
 a forum conversation is confined to the work's own space, it doesn't
 circulate to followers the way a note does.
 
-## Beta 9 — events
+## Beta 10 — events
 
 **Problem:** an ephemeral, per-work group chat tied to a live/upcoming/ended
 window — also real in earlier product work, not yet here. Demoted
@@ -116,10 +138,10 @@ history after the event "ends." Worth an explicit decision here, not an
 assumption: is that acceptable (state is computed, data just persists
 quietly), or does this need real deletion/expiry logic added on top?
 
-## Beta 10 — real fan-out (relay/firehose beyond your own account)
+## Beta 11 — real fan-out (relay/firehose beyond your own account)
 
 **Problem:** Tap today only ever tracks a repo after *you* log into it via
-OAuth. Everything through Beta 9 still only aggregates across accounts that
+OAuth. Everything through Beta 10 still only aggregates across accounts that
 happened to log into this appview by hand. The actual AT Protocol problem —
 discovering and indexing records from accounts that never touched this
 appview's OAuth flow — hasn't been faced yet.
@@ -130,7 +152,7 @@ probably a short seeded list (you + a few volunteers) rather than attempting
 open firehose discovery on day one, since the raw firehose is enormous and
 almost none of it is these collections.
 
-## Beta 11 — observability
+## Beta 12 — observability
 
 **Problem:** a different shape of observability problem than earlier product
 work's own version of this (which was about correlating a request across
@@ -138,7 +160,7 @@ many services you wrote yourself). Here there's still one binary — the real
 unknowns are dependencies on infrastructure nobody on this project operates:
 is Tap keeping up with the firehose or falling behind, are XRPC calls to
 other people's PDSs failing, is OAuth/DPoP session refresh failing quietly,
-and — the one that matters most once Beta 10 is real — is the relay
+and — the one that matters most once Beta 11 is real — is the relay
 actually handing over every record it should, or are some silently missed.
 Placed after fan-out on purpose: before that point, a handful of
 manually-tested accounts are still small enough to check by hand with
@@ -155,15 +177,15 @@ Which exact stack (full OpenTelemetry+Jaeger+Prometheus+Alertmanager like
 earlier product work, or something lighter given this is one binary, not
 nine services) is explicitly left for when this beta actually starts.
 
-## Beta 12 — affinity across shelves
+## Beta 13 — affinity across shelves
 
 **Problem:** "who has similar taste" only becomes a real question once
-Beta 10 makes more than a couple of hand-tested accounts' data available.
+Beta 11 makes more than a couple of hand-tested accounts' data available.
 
 **Rough shape:** the same Jaccard-similarity idea already proven in earlier
 lab work, recomputed against federated data instead of rows in one database.
 
-## Beta 13 — direct messages
+## Beta 14 — direct messages
 
 **Problem:** the odd one out on this whole list, flagged rather than
 scoped. Every other collection here is meant to be public repo data — that's
@@ -177,7 +199,7 @@ equivalent side-service, or whether DMs simply stay a feature that doesn't
 cross over to the federated product, is a real open question — worth a full
 planning conversation on its own before this beta gets scoped for real.
 
-## Beta 14 — close known gaps
+## Beta 15 — close known gaps
 
 **Problem:** loose ends already named and deliberately deferred: update/delete
 for notes (only create is wired, same gap already named for shelf items),

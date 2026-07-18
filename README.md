@@ -32,7 +32,7 @@ What exists:
 - [`scripts/dev-pds/`](scripts/dev-pds/) — a disposable local PDS + PLC, no Postgres, no TLS, for studying and testing without depending on a real account
 - Pipeline validated end to end, repeatedly, against both the local sandbox and the production network — full architecture documented in [`docs/architecture-beta0-local.md`](docs/architecture-beta0-local.md)
 
-Next up: see [`docs/ROADMAP.md`](docs/ROADMAP.md) for the macro shape of what's left. Feed (Beta 6) is next; forum, events, real fan-out, observability, affinity, direct messages, and closing known gaps all follow. All still a sketch, none started.
+Next up: see [`docs/ROADMAP.md`](docs/ROADMAP.md) for the macro shape of what's left. Feed (Beta 6) is next, followed by the shelf as a creative space (Beta 7), then constellation and archetype on the profile (Beta 8); forum, events, real fan-out, observability, affinity, direct messages, and closing known gaps all follow. All still a sketch, none started.
 
 This is a hobby turning into an idea, documented in public. Progress and decisions also go out on the [@orbita.bsky.social](https://bsky.app/profile/orbita.bsky.social) profile *(coming soon)*.
 
