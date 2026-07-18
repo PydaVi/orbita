@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "social.orbita.repost",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A repost of a social.orbita.note — surfaces the original note in the reposter's followers' feed, attributed to who shared it (see the product's own principle against public popularity metrics: no count is ever computed or displayed from these records, only the fact of who reposted).",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The social.orbita.note being reposted."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

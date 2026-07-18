@@ -20,12 +20,16 @@ presenting to someone outside this project.
 
 Three tabs — **Shelf** (main: notes from anyone about works on your own
 shelf, obra-first), **Following** (notes from people you follow, via the
-existing Bluesky follow graph), **Affinity** (an honest placeholder — needs
-the Jaccard computation from Beta 13). Chronological, no ranking, only
-`social.orbita.note` — see [`BETA6-PLAN.md`](BETA6-PLAN.md) for the full
-account, including a correction caught mid-build: the original sketch below
-only named a single "Following" tab before the real three-tab shape was
-restored.
+existing Bluesky follow graph, plus reposts by anyone followed, attributed
+— never counted), **Affinity** (an honest placeholder — needs the Jaccard
+computation from Beta 13). Chronological, no ranking, only
+`social.orbita.note`. Notes also gained real reply threads (root/parent,
+same shape earlier product work already established) — see
+[`BETA6-PLAN.md`](BETA6-PLAN.md) for the full account, including two
+corrections caught mid-build: the original sketch below only named a
+single "Following" tab before the real three-tab shape was restored, and
+conversation on notes was initially assumed to be forum-only before the
+author pointed out that was never actually true.
 
 <details>
 <summary>original sketch (superseded, kept for history)</summary>

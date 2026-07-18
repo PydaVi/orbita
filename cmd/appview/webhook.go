@@ -31,6 +31,20 @@ type tapRecordData struct {
 			Provider string `json:"provider"`
 			ID       string `json:"id"`
 		} `json:"work"`
+		Reply *struct {
+			Root struct {
+				URI string `json:"uri"`
+				CID string `json:"cid"`
+			} `json:"root"`
+			Parent struct {
+				URI string `json:"uri"`
+				CID string `json:"cid"`
+			} `json:"parent"`
+		} `json:"reply"`
+		Subject struct {
+			URI string `json:"uri"`
+			CID string `json:"cid"`
+		} `json:"subject"`
 	} `json:"record"`
 }
 
@@ -68,8 +82,21 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 					log.Printf("indexed: %s", uri)
 				}
 			case "social.orbita.note":
+				var rootURI, rootCID, parentURI, parentCID *string
+				if rec.Record.Reply != nil {
+					rootURI, rootCID = &rec.Record.Reply.Root.URI, &rec.Record.Reply.Root.CID
+					parentURI, parentCID = &rec.Record.Reply.Parent.URI, &rec.Record.Reply.Parent.CID
+				}
 				err := insertNote(db, uri, rec.CID, rec.DID, rec.Record.Work.Provider, rec.Record.Work.ID,
-					rec.Record.Season, rec.Record.Episode, rec.Record.Text, rec.Record.CreatedAt)
+					rec.Record.Season, rec.Record.Episode, rec.Record.Text, rec.Record.CreatedAt,
+					rootURI, rootCID, parentURI, parentCID)
+				if err != nil {
+					log.Printf("failed to index %s: %v", uri, err)
+				} else {
+					log.Printf("indexed: %s", uri)
+				}
+			case "social.orbita.repost":
+				err := insertRepost(db, uri, rec.CID, rec.DID, rec.Record.Subject.URI, rec.Record.Subject.CID, rec.Record.CreatedAt)
 				if err != nil {
 					log.Printf("failed to index %s: %v", uri, err)
 				} else {

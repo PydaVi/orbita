@@ -75,6 +75,91 @@ function orbitalMark() {
   return wrap;
 }
 
+// renderReplyItem is one level of nesting, read-only for this first pass —
+// no reply/RT button on a reply itself (see notes.go's own comment on
+// why: replying-to-a-reply is stored correctly at the data layer, it just
+// isn't surfaced in the UI yet, so offering the control here would look
+// like it worked and then the reply would never actually be visible
+// anywhere).
+function renderReplyItem(rep) {
+  return el("li", {}, [
+    el("div", { class: "note-byline" }, [
+      el("a", { href: `/profile/${rep.handle}`, class: "note-byline" }, [
+        avatarEl(rep.handle, rep.avatarUrl),
+        el("span", { class: "mono", text: `@${displayHandle(rep.handle)}` }),
+      ]),
+      el("span", { class: "mono", text: rep.createdAt }),
+    ]),
+    el("p", { class: "note-text", text: rep.text }),
+  ]);
+}
+
+// The RT + reply row under a note's text. No count anywhere — RT only
+// ever surfaces as "reposted by @handle" in someone's Following feed
+// (see api.go's buildFeedEntry), never a number. onReplyAdded gets the
+// newly created reply so the caller can render it into its own nested
+// list, since where that list lives differs between the work page and
+// the feed.
+function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
+  const row = el("div", { class: "note-actions" });
+
+  const rtBtn = el("button", { type: "button", class: "action-btn", text: "RT" });
+  rtBtn.addEventListener("click", async () => {
+    rtBtn.disabled = true;
+    try {
+      await fetchJSON("/api/notes/repost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uri: n.uri, cid: n.cid }),
+      });
+      rtBtn.textContent = "reposted ✓";
+    } catch (err) {
+      alert(`failed to repost: ${err}`);
+      rtBtn.disabled = false;
+    }
+  });
+  row.appendChild(rtBtn);
+
+  const replyBtn = el("button", { type: "button", class: "action-btn", text: "reply" });
+  const replyBox = el("div", { class: "reply-box", style: "display:none" });
+  const textarea = el("textarea", { placeholder: "write a reply..." });
+  const submitBtn = el("button", { type: "button", text: "Reply" });
+  submitBtn.addEventListener("click", async () => {
+    const text = textarea.value.trim();
+    if (!text) return;
+    submitBtn.disabled = true;
+    try {
+      const payload = { provider, id, text, replyTo: { uri: n.uri, cid: n.cid } };
+      if (season != null) {
+        payload.season = season;
+        payload.episode = episode;
+      }
+      const created = await fetchJSON("/api/notes/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      textarea.value = "";
+      replyBox.style.display = "none";
+      if (onReplyAdded) onReplyAdded(created);
+    } catch (err) {
+      alert(`failed to reply: ${err}`);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+  replyBox.appendChild(textarea);
+  replyBox.appendChild(submitBtn);
+
+  replyBtn.addEventListener("click", () => {
+    replyBox.style.display = replyBox.style.display === "none" ? "block" : "none";
+  });
+  row.appendChild(replyBtn);
+  row.appendChild(replyBox);
+
+  return row;
+}
+
 // Every page calls this first, with which nav item (if any) is current.
 // Builds the persistent topbar (mark + wordmark only) and the 3-column
 // layout — sidebar (text nav) / center / right column — into #shell-mount,

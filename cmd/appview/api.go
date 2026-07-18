@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -36,18 +37,54 @@ type profileNoteEntry struct {
 }
 
 type feedNoteEntry struct {
-	URI       string `json:"uri"`
-	DID       string `json:"did"`
-	Handle    string `json:"handle"`
-	AvatarURL string `json:"avatarUrl,omitempty"`
-	Provider  string `json:"provider"`
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Poster    string `json:"poster,omitempty"`
-	Season    *int   `json:"season,omitempty"`
-	Episode   *int   `json:"episode,omitempty"`
-	Text      string `json:"text"`
-	CreatedAt string `json:"createdAt"`
+	URI              string      `json:"uri"`
+	CID              string      `json:"cid"`
+	DID              string      `json:"did"`
+	Handle           string      `json:"handle"`
+	AvatarURL        string      `json:"avatarUrl,omitempty"`
+	Provider         string      `json:"provider"`
+	ID               string      `json:"id"`
+	Title            string      `json:"title"`
+	Poster           string      `json:"poster,omitempty"`
+	Season           *int        `json:"season,omitempty"`
+	Episode          *int        `json:"episode,omitempty"`
+	Text             string      `json:"text"`
+	CreatedAt        string      `json:"createdAt"`
+	Replies          []noteEntry `json:"replies,omitempty"`
+	RepostedByHandle string      `json:"repostedByHandle,omitempty"`
+	RepostedAt       string      `json:"repostedAt,omitempty"`
+}
+
+// buildFeedEntry resolves everything a feed card needs (author identity,
+// work title/poster, direct replies) for one note. repostedByHandle/At are
+// only set when this entry reached the feed via a repost, not by the
+// original author being followed/on-shelf directly.
+func buildFeedEntry(ctx context.Context, db *sql.DB, n FeedNote, repostedByHandle, repostedAt string) feedNoteEntry {
+	handle, avatar := resolveIdentity(ctx, db, n.DID)
+	title, poster, _ := displayWork(db, n.Provider, n.WorkID)
+	entry := feedNoteEntry{
+		URI: n.URI, CID: n.CID, DID: n.DID, Handle: handle, AvatarURL: avatar,
+		Provider: n.Provider, ID: n.WorkID, Title: title, Poster: poster,
+		Season: n.Season, Episode: n.Episode, Text: n.Text, CreatedAt: n.CreatedAt,
+		RepostedByHandle: repostedByHandle, RepostedAt: repostedAt,
+	}
+	if replies, err := listReplies(db, n.URI); err == nil {
+		for _, rep := range replies {
+			entry.Replies = append(entry.Replies, toReplyEntry(ctx, db, rep))
+		}
+	}
+	return entry
+}
+
+// feedSortKey is what merges notes-by-followed-authors and
+// reposts-by-followed-accounts into one chronological list: a repost
+// sorts by when it was shared, not when the original note was written —
+// that's when it actually showed up for the viewer.
+func feedSortKey(e feedNoteEntry) string {
+	if e.RepostedAt != "" {
+		return e.RepostedAt
+	}
+	return e.CreatedAt
 }
 
 type profileResponse struct {
@@ -80,12 +117,14 @@ type shelfEntry struct {
 }
 
 type noteEntry struct {
-	URI       string `json:"uri"`
-	DID       string `json:"did"`
-	Handle    string `json:"handle"`
-	AvatarURL string `json:"avatarUrl,omitempty"`
-	Text      string `json:"text"`
-	CreatedAt string `json:"createdAt"`
+	URI       string      `json:"uri"`
+	CID       string      `json:"cid"`
+	DID       string      `json:"did"`
+	Handle    string      `json:"handle"`
+	AvatarURL string      `json:"avatarUrl,omitempty"`
+	Text      string      `json:"text"`
+	CreatedAt string      `json:"createdAt"`
+	Replies   []noteEntry `json:"replies,omitempty"`
 }
 
 // Both accounts and notes carry a handle/avatar resolved straight from the
@@ -97,9 +136,26 @@ func toAccountEntry(ctx context.Context, db *sql.DB, it ShelfItem) accountEntry 
 	return accountEntry{URI: it.URI, DID: it.DID, Handle: handle, AvatarURL: avatar, AddedAt: it.CreatedAt}
 }
 
-func toNoteEntry(ctx context.Context, db *sql.DB, n Note) noteEntry {
+// toReplyEntry renders a note with no further reply-fetching — the
+// building block for one level of nesting, used both directly and inside
+// toNoteEntry below.
+func toReplyEntry(ctx context.Context, db *sql.DB, n Note) noteEntry {
 	handle, avatar := resolveIdentity(ctx, db, n.DID)
-	return noteEntry{URI: n.URI, DID: n.DID, Handle: handle, AvatarURL: avatar, Text: n.Text, CreatedAt: n.CreatedAt}
+	return noteEntry{URI: n.URI, CID: n.CID, DID: n.DID, Handle: handle, AvatarURL: avatar, Text: n.Text, CreatedAt: n.CreatedAt}
+}
+
+// toNoteEntry additionally fetches direct replies (one level deep, see
+// listReplies) — a reply's own replies aren't fetched here, keeping this
+// a bounded, non-recursive query regardless of how deep a thread actually
+// goes at the data layer.
+func toNoteEntry(ctx context.Context, db *sql.DB, n Note) noteEntry {
+	entry := toReplyEntry(ctx, db, n)
+	if replies, err := listReplies(db, n.URI); err == nil {
+		for _, rep := range replies {
+			entry.Replies = append(entry.Replies, toReplyEntry(ctx, db, rep))
+		}
+	}
+	return entry
 }
 
 type workResponse struct {
@@ -329,14 +385,15 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 	// non-negotiable shape for any feed. Two tabs for now: "shelf" (the
 	// main one — notes from *anyone* about works on the viewer's own
 	// shelf, obra-first) and "following" (notes from people the viewer
-	// follows, reusing the existing Bluesky follow graph instead of
-	// inventing a parallel one). A third tab, "affinity," belongs here
-	// too but needs the Jaccard computation that doesn't exist yet
-	// (Beta 13) — the frontend shows it as an honest placeholder rather
-	// than this endpoint faking a response for it. Only ever pulls from
-	// social.orbita.note — forum comments, whenever they exist, are
-	// deliberately not feed material. Scoped, for now, to accounts that
-	// have already used this appview — real fan-out is Beta 11.
+	// follows, plus notes anyone followed reposted — reusing the existing
+	// Bluesky follow graph instead of inventing a parallel one). A third
+	// tab, "affinity," belongs here too but needs the Jaccard computation
+	// that doesn't exist yet (Beta 13) — the frontend shows it as an
+	// honest placeholder rather than this endpoint faking a response for
+	// it. Only ever pulls from social.orbita.note — forum comments,
+	// whenever they exist, are deliberately not feed material. Scoped,
+	// for now, to accounts that have already used this appview — real
+	// fan-out is Beta 11.
 	mux.HandleFunc("GET /api/feed", func(w http.ResponseWriter, r *http.Request) {
 		did, _ := currentSessionDID(r)
 		if did == nil {
@@ -349,8 +406,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			tab = "shelf"
 		}
 
-		var notes []FeedNote
-		var err error
+		var entries []feedNoteEntry
 		switch tab {
 		case "shelf":
 			shelfItems, shelfErr := listShelfItemsByAccount(db, did.String())
@@ -358,7 +414,15 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 				http.Error(w, shelfErr.Error(), http.StatusInternalServerError)
 				return
 			}
-			notes, err = listNotesByWorks(db, shelfItems, 50)
+			notes, err := listNotesByWorks(db, shelfItems, 50)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			for _, n := range notes {
+				entries = append(entries, buildFeedEntry(r.Context(), db, n, "", ""))
+			}
+
 		case "following":
 			pdsURL, pdsErr := resolvePDSURL(r.Context(), did.String())
 			if pdsErr != nil {
@@ -370,27 +434,50 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 				http.Error(w, fmt.Sprintf("could not read your follows: %v", followErr), http.StatusInternalServerError)
 				return
 			}
-			notes, err = listNotesByDIDs(db, followedDIDs, 50)
+
+			notes, err := listNotesByDIDs(db, followedDIDs, 50)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			for _, n := range notes {
+				entries = append(entries, buildFeedEntry(r.Context(), db, n, "", ""))
+			}
+
+			// Reposts by anyone followed surface the original note too —
+			// from *anyone*, not just other followed accounts, since
+			// that's the whole point: a friend found it worth sharing.
+			// Sort key for these is the repost's own time, not the
+			// note's — that's when it actually showed up for the viewer.
+			reposts, repostErr := listRepostsByDIDs(db, followedDIDs, 50)
+			if repostErr != nil {
+				http.Error(w, repostErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			for _, rp := range reposts {
+				n, noteErr := getNoteByURI(db, rp.SubjectURI)
+				if noteErr != nil {
+					continue // the reposted note isn't indexed locally — skip, don't break the feed
+				}
+				reposterHandle, _ := resolveIdentity(r.Context(), db, rp.DID)
+				entries = append(entries, buildFeedEntry(r.Context(), db, *n, reposterHandle, rp.CreatedAt))
+			}
+
+			sort.Slice(entries, func(i, j int) bool {
+				return feedSortKey(entries[i]) > feedSortKey(entries[j])
+			})
+			if len(entries) > 50 {
+				entries = entries[:50]
+			}
+
 		default:
 			http.Error(w, fmt.Sprintf("unknown feed tab %q", tab), http.StatusBadRequest)
 			return
 		}
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 
-		entries := make([]feedNoteEntry, 0, len(notes))
-		for _, n := range notes {
-			handle, avatar := resolveIdentity(r.Context(), db, n.DID)
-			title, poster, _ := displayWork(db, n.Provider, n.WorkID)
-			entries = append(entries, feedNoteEntry{
-				URI: n.URI, DID: n.DID, Handle: handle, AvatarURL: avatar,
-				Provider: n.Provider, ID: n.WorkID, Title: title, Poster: poster,
-				Season: n.Season, Episode: n.Episode, Text: n.Text, CreatedAt: n.CreatedAt,
-			})
+		if entries == nil {
+			entries = []feedNoteEntry{}
 		}
-
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"notes": entries})
 	})
@@ -557,6 +644,10 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			Season   *int   `json:"season"`
 			Episode  *int   `json:"episode"`
 			Text     string `json:"text"`
+			ReplyTo  *struct {
+				URI string `json:"uri"`
+				CID string `json:"cid"`
+			} `json:"replyTo"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -579,6 +670,21 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		if body.Episode != nil {
 			record["episode"] = *body.Episode
 		}
+		if body.ReplyTo != nil {
+			// A whole thread shares one root: if the note being replied to
+			// is itself a reply, its own root is reused rather than
+			// starting a new one — matching AT Protocol's own reply
+			// convention (app.bsky.feed.post does the same).
+			_, rootURI, rootCID, rootErr := noteRootRef(db, body.ReplyTo.URI)
+			if rootErr != nil {
+				http.Error(w, fmt.Sprintf("could not find the note being replied to: %v", rootErr), http.StatusBadRequest)
+				return
+			}
+			record["reply"] = map[string]any{
+				"root":   map[string]any{"uri": rootURI, "cid": rootCID},
+				"parent": map[string]any{"uri": body.ReplyTo.URI, "cid": body.ReplyTo.CID},
+			}
+		}
 
 		c := oauthSess.APIClient()
 		apiBody := map[string]any{
@@ -590,6 +696,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		log.Printf("writing note via OAuth (DPoP), JSON API: provider=%s id=%s", body.Provider, body.ID)
 		var created struct {
 			URI string `json:"uri"`
+			CID string `json:"cid"`
 		}
 		if err := c.Post(ctx, "com.atproto.repo.createRecord", apiBody, &created); err != nil {
 			http.Error(w, fmt.Sprintf("failed to write note: %v", err), http.StatusBadRequest)
@@ -606,11 +713,59 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(noteEntry{
 			URI:       created.URI,
+			CID:       created.CID,
 			DID:       c.AccountDID.String(),
 			Handle:    handle,
 			AvatarURL: avatar,
 			Text:      body.Text,
 			CreatedAt: createdAt.String(),
 		})
+	})
+
+	// A repost is its own record (social.orbita.repost), not a flag on the
+	// note — see reposts.go. No count is ever computed or returned here;
+	// this only ever exists so the note surfaces in the reposter's
+	// followers' Following feed, attributed to who shared it.
+	mux.HandleFunc("POST /api/notes/repost", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		did, sessionID := currentSessionDID(r)
+		if did == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+		oauthSess, err := oauthClient.ResumeSession(ctx, *did, sessionID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid session, please sign in again: %v", err), http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			URI string `json:"uri"`
+			CID string `json:"cid"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		c := oauthSess.APIClient()
+		apiBody := map[string]any{
+			"repo":       c.AccountDID.String(),
+			"collection": "social.orbita.repost",
+			"record": map[string]any{
+				"$type":     "social.orbita.repost",
+				"subject":   map[string]any{"uri": body.URI, "cid": body.CID},
+				"createdAt": syntax.DatetimeNow(),
+			},
+		}
+
+		log.Printf("writing repost via OAuth (DPoP), JSON API: subject=%s", body.URI)
+		if err := c.Post(ctx, "com.atproto.repo.createRecord", apiBody, nil); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write repost: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 }

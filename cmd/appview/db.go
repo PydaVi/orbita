@@ -3,9 +3,21 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
+
+// ensureColumn adds a column to an already-existing table if it isn't
+// there yet — SQLite has no "ADD COLUMN IF NOT EXISTS," so the "column
+// already exists" error from a repeat run is caught and ignored instead.
+func ensureColumn(db *sql.DB, table, column, definition string) error {
+	_, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, definition))
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
+	}
+	return nil
+}
 
 // Local database: just the indexed copy of what the Tap webhook delivers.
 // The PDS is the source of truth (see docs/BETA0-PLAN.md, "Where each
@@ -61,6 +73,17 @@ func openDB(path string) (*sql.DB, error) {
 	}
 	if _, err := db.Exec(notesSchema); err != nil {
 		return nil, fmt.Errorf("creating notes schema: %w", err)
+	}
+	// notesSchema's CREATE TABLE IF NOT EXISTS only applies to a fresh
+	// database — an existing notes table (any beta before this one) needs
+	// these columns added explicitly, since it already exists.
+	for _, col := range []string{"reply_root_uri", "reply_root_cid", "reply_parent_uri", "reply_parent_cid"} {
+		if err := ensureColumn(db, "notes", col, "TEXT"); err != nil {
+			return nil, fmt.Errorf("migrating notes.%s: %w", col, err)
+		}
+	}
+	if _, err := db.Exec(repostsSchema); err != nil {
+		return nil, fmt.Errorf("creating reposts schema: %w", err)
 	}
 	if _, err := db.Exec(identityCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating identity_cache schema: %w", err)

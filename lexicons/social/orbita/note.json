@@ -33,8 +33,21 @@
           "createdAt": {
             "type": "string",
             "format": "datetime"
+          },
+          "reply": {
+            "type": "ref",
+            "ref": "#replyRef",
+            "description": "Present when this note is a reply to another note. root and parent are the same record when replying directly to a root-level note; root stays the original thread's root when replying to a reply."
           }
         }
+      }
+    },
+    "replyRef": {
+      "type": "object",
+      "required": ["root", "parent"],
+      "properties": {
+        "root": { "type": "ref", "ref": "com.atproto.repo.strongRef" },
+        "parent": { "type": "ref", "ref": "com.atproto.repo.strongRef" }
       }
     }
   }

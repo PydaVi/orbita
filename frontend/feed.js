@@ -80,11 +80,15 @@ function renderFeedList(content, notes) {
         ? `/works/${n.provider}/${n.id}/season/${n.season}/episode/${n.episode}`
         : `/works/${n.provider}/${n.id}`;
 
-    const children = [];
-    if (n.poster) {
-      children.push(el("img", { src: n.poster, class: "episode-still", alt: "" }));
+    const bodyChildren = [];
+    // Attribution, not a metric: who reposted this into your feed — never
+    // a count, just the one fact of who shared it.
+    if (n.repostedByHandle) {
+      bodyChildren.push(
+        el("p", { class: "mono repost-attribution", text: `🔁 reposted by @${displayHandle(n.repostedByHandle)}` })
+      );
     }
-    const body = el("div", { class: "note-main" }, [
+    bodyChildren.push(
       el("div", { class: "note-byline" }, [
         el("a", { href: `/profile/${n.handle}`, class: "note-byline" }, [
           avatarEl(n.handle, n.avatarUrl),
@@ -93,11 +97,29 @@ function renderFeedList(content, notes) {
         el("span", { class: "mono", text: n.createdAt }),
       ]),
       el("a", { href: workHref, text: workLabel }),
-      el("p", { class: "note-text", text: n.text }),
-    ]);
+      el("p", { class: "note-text", text: n.text })
+    );
+
+    const repliesList = el("ul", { class: "plain replies" });
+    for (const rep of n.replies || []) {
+      repliesList.appendChild(renderReplyItem(rep));
+    }
+
+    const body = el("div", { class: "feed-card-body" }, bodyChildren);
+    body.appendChild(
+      noteActionRow(n, n.provider, n.id, n.season ?? null, n.episode ?? null, (created) => {
+        repliesList.appendChild(renderReplyItem(created));
+      })
+    );
+    body.appendChild(repliesList);
+
+    const children = [];
+    if (n.poster) {
+      children.push(el("div", { class: "feed-card-poster" }, [el("img", { src: n.poster, alt: "" })]));
+    }
     children.push(body);
 
-    list.appendChild(el("li", { class: "note" }, children));
+    list.appendChild(el("li", { class: "feed-card" }, children));
   }
   if (!notes || notes.length === 0) {
     list.appendChild(el("li", { class: "empty", text: "nothing here yet" }));

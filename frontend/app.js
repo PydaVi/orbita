@@ -321,7 +321,17 @@ function renderNotesSection(container, provider, id, notes, season, episode, med
     });
     byline.appendChild(shareBtn);
 
+    const repliesList = el("ul", { class: "plain replies" });
+    for (const rep of n.replies || []) {
+      repliesList.appendChild(renderReplyItem(rep));
+    }
+
     const main = el("div", { class: "note-main" }, [byline, el("p", { class: "note-text", text: n.text })]);
+    main.appendChild(noteActionRow(n, provider, id, season, episode, (created) => {
+      repliesList.appendChild(renderReplyItem(created));
+    }));
+    main.appendChild(repliesList);
+
     const children = [main];
     if (mediaUrl) {
       children.unshift(el("div", { class: "note-media" }, [el("img", { src: mediaUrl, alt: "" })]));
