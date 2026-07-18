@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}}</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Órbita">
+  <meta property="og:title" content="{{.Title}}">
+  <meta property="og:description" content="{{.Description}}">
+  {{if .Image}}<meta property="og:image" content="{{.Image}}">{{end}}
+  <meta property="og:url" content="{{.URL}}">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="shell-mount"></div>
+  <main class="page" id="app"></main>
+  <script src="/common.js"></script>
+  <script src="/nook.js"></script>
+</body>
+</html>

@@ -88,6 +88,12 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(nooksSchema); err != nil {
 		return nil, fmt.Errorf("creating nooks schema: %w", err)
 	}
+	// Same reasoning as notes above: an existing nooks table (any Beta 7
+	// database from before nook ordering existed) needs sort_order added
+	// explicitly.
+	if err := ensureColumn(db, "nooks", "sort_order", "INTEGER"); err != nil {
+		return nil, fmt.Errorf("migrating nooks.sort_order: %w", err)
+	}
 	if _, err := db.Exec(nookItemsSchema); err != nil {
 		return nil, fmt.Errorf("creating nook_items schema: %w", err)
 	}

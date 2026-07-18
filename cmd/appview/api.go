@@ -96,7 +96,28 @@ type nookEntry struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description,omitempty"`
 	Theme       string              `json:"theme"`
+	Order       *int                `json:"order,omitempty"`
 	Works       []profileShelfEntry `json:"works"`
+}
+
+// buildNookEntry resolves a stored Nook's works into the title/poster shape
+// the frontend renders — shared by the profile listing and the single-nook
+// detail endpoint so both stay in sync.
+func buildNookEntry(db *sql.DB, n Nook) nookEntry {
+	works := make([]profileShelfEntry, 0, len(n.Works))
+	for _, w := range n.Works {
+		title, poster, _ := displayWork(db, w.Provider, w.WorkID)
+		works = append(works, profileShelfEntry{Provider: w.Provider, ID: w.WorkID, Title: title, Poster: poster})
+	}
+	return nookEntry{URI: n.URI, Name: n.Name, Description: n.Description, Theme: n.Theme, Order: n.Order, Works: works}
+}
+
+// nookDetailResponse is a single nook plus enough of its owner's identity to
+// credit the card ("<handle>'s nook") without a second round-trip.
+type nookDetailResponse struct {
+	nookEntry
+	OwnerHandle string `json:"ownerHandle"`
+	OwnerAvatar string `json:"ownerAvatar,omitempty"`
 }
 
 type profileResponse struct {
@@ -327,13 +348,14 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Theme       string `json:"theme"`
+		Order       *int   `json:"order"`
 		Works       []struct {
 			Provider string `json:"provider"`
 			ID       string `json:"id"`
 		} `json:"works"`
 	}
 
-	buildNookRecord := func(did, createdAt string, body nookRequestBody) (map[string]any, []WorkRef, error) {
+	buildNookRecord := func(did, createdAt string, order *int, body nookRequestBody) (map[string]any, []WorkRef, error) {
 		theme := body.Theme
 		if theme == "" {
 			theme = "default"
@@ -355,16 +377,19 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			"style":       map[string]any{"theme": theme},
 			"createdAt":   createdAt,
 		}
+		if order != nil {
+			record["order"] = *order
+		}
 		return record, works, nil
 	}
 
-	toNookEntry := func(uri, name, description, theme string, works []WorkRef) nookEntry {
+	toNookEntry := func(uri, name, description, theme string, order *int, works []WorkRef) nookEntry {
 		workEntries := make([]profileShelfEntry, 0, len(works))
 		for _, w := range works {
 			title, poster, _ := displayWork(db, w.Provider, w.WorkID)
 			workEntries = append(workEntries, profileShelfEntry{Provider: w.Provider, ID: w.WorkID, Title: title, Poster: poster})
 		}
-		return nookEntry{URI: uri, Name: name, Description: description, Theme: theme, Works: workEntries}
+		return nookEntry{URI: uri, Name: name, Description: description, Theme: theme, Order: order, Works: workEntries}
 	}
 
 	mux.HandleFunc("POST /api/nooks", func(w http.ResponseWriter, r *http.Request) {
@@ -387,7 +412,12 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 
 		createdAt := syntax.DatetimeNow().String()
-		record, works, err := buildNookRecord(did.String(), createdAt, body)
+		order := body.Order
+		if order == nil {
+			next := nextNookOrder(db, did.String())
+			order = &next
+		}
+		record, works, err := buildNookRecord(did.String(), createdAt, order, body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -409,7 +439,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(toNookEntry(created.URI, body.Name, body.Description, record["style"].(map[string]any)["theme"].(string), works))
+		json.NewEncoder(w).Encode(toNookEntry(created.URI, body.Name, body.Description, record["style"].(map[string]any)["theme"].(string), order, works))
 	})
 
 	mux.HandleFunc("PUT /api/nooks/{rkey}", func(w http.ResponseWriter, r *http.Request) {
@@ -435,19 +465,26 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 
 		// The original createdAt is preserved across edits — this is when
-		// the nook was made, not when it was last touched. Falls back to
-		// now only if the local index hasn't caught up with this nook yet.
+		// the nook was made, not when it was last touched. Same for order,
+		// unless this request is specifically a reorder (body.Order set):
+		// most edits (rename, add/remove a work) shouldn't silently bump a
+		// nook to a new position. Both fall back to fresh values only if
+		// the local index hasn't caught up with this nook yet.
 		createdAt := syntax.DatetimeNow().String()
+		order := body.Order
 		if existing, existErr := listNooksByAccount(db, did.String()); existErr == nil {
 			for _, n := range existing {
 				if n.URI == uri {
 					createdAt = n.CreatedAt
+					if order == nil {
+						order = n.Order
+					}
 					break
 				}
 			}
 		}
 
-		record, works, err := buildNookRecord(did.String(), createdAt, body)
+		record, works, err := buildNookRecord(did.String(), createdAt, order, body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -467,7 +504,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(toNookEntry(uri, body.Name, body.Description, record["style"].(map[string]any)["theme"].(string), works))
+		json.NewEncoder(w).Encode(toNookEntry(uri, body.Name, body.Description, record["style"].(map[string]any)["theme"].(string), order, works))
 	})
 
 	mux.HandleFunc("POST /api/nooks/delete", func(w http.ResponseWriter, r *http.Request) {
@@ -568,12 +605,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 		nooks := make([]nookEntry, 0, len(rawNooks))
 		for _, n := range rawNooks {
-			works := make([]profileShelfEntry, 0, len(n.Works))
-			for _, w := range n.Works {
-				title, poster, _ := displayWork(db, w.Provider, w.WorkID)
-				works = append(works, profileShelfEntry{Provider: w.Provider, ID: w.WorkID, Title: title, Poster: poster})
-			}
-			nooks = append(nooks, nookEntry{URI: n.URI, Name: n.Name, Description: n.Description, Theme: n.Theme, Works: works})
+			nooks = append(nooks, buildNookEntry(db, n))
 		}
 
 		unsortedItems, err := listUnsortedShelfItems(db, did)
@@ -604,6 +636,38 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(profileResponse{
 			DID: did, Handle: handle, AvatarURL: avatar, Bio: bio, Nooks: nooks, Unsorted: unsorted, Notes: notes,
+		})
+	})
+
+	// Beta 7: a single nook, addressable on its own — what the shareable
+	// nook page (nookpage.go) renders both server-side (for OG tags) and
+	// client-side (for the interactive card). ownerHandle/ownerAvatar ride
+	// along so the card can credit whose taste this is without a second
+	// request.
+	mux.HandleFunc("GET /api/profile/{handle}/nook/{rkey}", func(w http.ResponseWriter, r *http.Request) {
+		handleParam := r.PathValue("handle")
+		rkey := r.PathValue("rkey")
+		did, err := resolveHandleToDID(r.Context(), handleParam)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("could not resolve handle: %v", err), http.StatusNotFound)
+			return
+		}
+
+		ownerHandle, ownerAvatar := resolveIdentity(r.Context(), db, did)
+		uri := fmt.Sprintf("at://%s/social.orbita.shelf.nook/%s", did, rkey)
+
+		n, err := getNook(db, uri)
+		if err != nil {
+			http.Error(w, "nook not found", http.StatusNotFound)
+			return
+		}
+
+		entry := buildNookEntry(db, *n)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(nookDetailResponse{
+			nookEntry:   entry,
+			OwnerHandle: ownerHandle,
+			OwnerAvatar: ownerAvatar,
 		})
 	})
 

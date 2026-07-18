@@ -55,6 +55,7 @@ async function saveNook(nook) {
       name: nook.name,
       description: nook.description || "",
       theme: nook.theme,
+      order: nook.order,
       works: nook.works.map((w) => ({ provider: w.provider, id: w.id })),
     };
     const updated = await fetchJSON(`/api/nooks/${rkeyOf(nook.uri)}`, {
@@ -114,8 +115,68 @@ function makeDropContainer(grid, onDropEmpty) {
   grid.addEventListener("dragover", (e) => e.preventDefault());
   grid.addEventListener("drop", (e) => {
     e.preventDefault();
+    e.stopPropagation();
     const data = JSON.parse(e.dataTransfer.getData("application/json"));
+    if (data.nookReorder) return; // not for this drop zone — see reorderNooksArea
     onDropEmpty(data);
+  });
+}
+
+// Repositioning a nook among its siblings: gapped integer positions
+// (1000, 2000, 3000…) so moving one nook only ever rewrites that one
+// record — recomputed as a full sequence only the first time (some nooks
+// predate this field and have no order yet), or if two neighbors are too
+// close together to fit a value between them.
+function reorderNooks(nooks, draggedUri, newIndex) {
+  const fromIndex = nooks.findIndex((n) => n.uri === draggedUri);
+  if (fromIndex < 0) return [];
+  const [moved] = nooks.splice(fromIndex, 1);
+  nooks.splice(newIndex > fromIndex ? newIndex - 1 : newIndex, 0, moved);
+
+  const renumberAll = () => {
+    nooks.forEach((n, i) => (n.order = (i + 1) * 1000));
+    return nooks.slice();
+  };
+
+  if (!nooks.every((n) => typeof n.order === "number")) return renumberAll();
+
+  const idx = nooks.indexOf(moved);
+  const before = idx > 0 ? nooks[idx - 1].order : null;
+  const after = idx < nooks.length - 1 ? nooks[idx + 1].order : null;
+  let newOrder;
+  if (before == null && after != null) newOrder = after - 1000;
+  else if (before != null && after == null) newOrder = before + 1000;
+  else if (before != null && after != null) {
+    newOrder = Math.floor((before + after) / 2);
+    if (newOrder === before || newOrder === after) return renumberAll();
+  } else {
+    newOrder = 1000;
+  }
+  moved.order = newOrder;
+  return [moved];
+}
+
+// The drop target for reordering nooks themselves: a nook's title is the
+// drag handle, dropped anywhere in this area repositions it relative to
+// its siblings based on vertical position — the works-inside-a-nook drop
+// zones already stop propagation, so this only ever fires for drops in the
+// gaps between/around nook boxes (headers, margins), not inside a grid.
+function makeNookReorderArea(container, getBoxes, onReorder) {
+  container.addEventListener("dragover", (e) => e.preventDefault());
+  container.addEventListener("drop", (e) => {
+    const data = JSON.parse(e.dataTransfer.getData("application/json") || "{}");
+    if (!data.nookReorder) return;
+    e.preventDefault();
+    const boxes = getBoxes().filter((b) => b.dataset.nookUri !== data.uri);
+    let targetIndex = boxes.length;
+    for (let i = 0; i < boxes.length; i++) {
+      const rect = boxes[i].getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) {
+        targetIndex = i;
+        break;
+      }
+    }
+    onReorder(data.uri, targetIndex);
   });
 }
 
@@ -184,10 +245,21 @@ function renderOrganizer(root, state) {
   };
 
   // ---- nooks, on top ----
+  const nooksArea = el("div", { class: "nooks-area" });
   for (const nook of state.nooks) {
-    root.appendChild(renderNookBox(nook, state, { moveWork, removeFromShelf, rerender }));
+    nooksArea.appendChild(renderNookBox(nook, state, { moveWork, removeFromShelf, rerender }));
   }
-  root.appendChild(renderNewNookTrigger(state, rerender));
+  nooksArea.appendChild(renderNewNookTrigger(state, rerender));
+  makeNookReorderArea(
+    nooksArea,
+    () => Array.from(nooksArea.querySelectorAll(".nook[data-nook-uri]")),
+    async (draggedUri, targetIndex) => {
+      const toSave = reorderNooks(state.nooks, draggedUri, targetIndex);
+      for (const nook of toSave) await saveNook(nook);
+      rerender();
+    }
+  );
+  root.appendChild(nooksArea);
 
   // ---- unsorted, underneath ----
   const nookedKeys = new Set(state.nooks.flatMap((n) => n.works.map(workKey)));
@@ -207,7 +279,13 @@ function renderOrganizer(root, state) {
 }
 
 function renderNookBox(nook, state, { moveWork, removeFromShelf, rerender }) {
-  const box = el("div", { class: `nook nook-${nook.theme}` }, [el("h2", { text: nook.name })]);
+  const title = el("h2", { text: nook.name, class: "nook-title", draggable: "true" });
+  title.addEventListener("dragstart", (e) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/json", JSON.stringify({ nookReorder: true, uri: nook.uri }));
+  });
+
+  const box = el("div", { class: `nook nook-${nook.theme}`, "data-nook-uri": nook.uri }, [title]);
   if (nook.description) box.appendChild(el("p", { class: "mono nook-description", text: nook.description }));
 
   const grid = el("div", { class: "shelf-grid" });

@@ -56,6 +56,7 @@ type tapRecordData struct {
 		Name        string    `json:"name"`
 		Description string    `json:"description"`
 		Works       []workRef `json:"works"`
+		Order       *int      `json:"order"`
 		Style       *struct {
 			Theme string `json:"theme"`
 		} `json:"style"`
@@ -132,7 +133,7 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 				for _, w := range rec.Record.Works {
 					works = append(works, WorkRef{Provider: w.Provider, WorkID: w.ID})
 				}
-				err := insertNook(db, uri, rec.CID, rec.DID, rec.Record.Name, rec.Record.Description, theme, rec.Record.CreatedAt, works)
+				err := insertNook(db, uri, rec.CID, rec.DID, rec.Record.Name, rec.Record.Description, theme, rec.Record.CreatedAt, rec.Record.Order, works)
 				if err != nil {
 					log.Printf("failed to index %s: %v", uri, err)
 				} else {

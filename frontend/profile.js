@@ -36,35 +36,22 @@ async function init() {
   renderProfilePage(app, profile);
 }
 
-// renderWorkGrid is shared between a nook and the unsorted catch-all —
-// same visual object either way, a poster grid.
-function renderWorkGrid(items) {
-  if (!items || items.length === 0) {
-    return el("p", { class: "empty", text: "nothing here yet" });
-  }
-  const grid = el("div", { class: "shelf-grid" });
-  for (const item of items) {
-    const cell = el("a", { href: `/works/${item.provider}/${item.id}`, class: "shelf-grid-item" });
-    if (item.poster) {
-      cell.appendChild(el("img", { src: item.poster, alt: item.title }));
-    } else {
-      cell.appendChild(el("span", { class: "mono", text: item.title }));
-    }
-    grid.appendChild(cell);
-  }
-  return grid;
-}
-
 // A nook's theme is one of a small curated set (see the Lexicon's own
 // style def) — never a free color, so every profile stays visually
 // coherent with the rest of the product while still feeling distinct.
-function renderNookSection(nook) {
+// handle is the owner's — needed to build the standalone share URL
+// (/profile/{handle}/nook/{rkey}), which is what gets a real Open Graph
+// preview when pasted elsewhere (see nookpage.go), unlike the profile page
+// itself.
+function renderNookSection(nook, handle) {
   const header = [el("h2", { text: nook.name })];
   if (nook.description) {
     header.push(el("p", { class: "mono nook-description", text: nook.description }));
   }
   const section = el("section", { class: `nook nook-${nook.theme || "default"}` }, header);
   section.appendChild(renderWorkGrid(nook.works));
+  const shareURL = `${window.location.origin}/profile/${handle}/nook/${rkeyOf(nook.uri)}`;
+  section.appendChild(shareButton(nook.name, shareURL));
   return section;
 }
 
@@ -89,7 +76,7 @@ function renderProfilePage(app, profile) {
   // side list. Unsorted works (not yet placed in any nook) get their own
   // honest section at the end, never folded silently into a default.
   for (const nook of profile.nooks || []) {
-    app.appendChild(renderNookSection(nook));
+    app.appendChild(renderNookSection(nook, profile.handle));
   }
 
   const unsortedSection = el("section", {}, [el("h2", { text: `Unsorted (${(profile.unsorted || []).length})` })]);

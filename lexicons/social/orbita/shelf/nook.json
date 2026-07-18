@@ -32,6 +32,10 @@
             "type": "ref",
             "ref": "#style"
           },
+          "order": {
+            "type": "integer",
+            "description": "Position relative to this account's other nooks — gapped (e.g. multiples of 1000) so moving one nook only ever rewrites that one record, not every nook. Optional: absent on nooks written before this field existed, which fall back to creation order."
+          },
           "createdAt": {
             "type": "string",
             "format": "datetime"

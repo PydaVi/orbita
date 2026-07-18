@@ -333,6 +333,12 @@ section {
 .nook h2 {
   margin-bottom: 0.25rem;
 }
+.nook-title {
+  cursor: grab;
+}
+.nook-title:active {
+  cursor: grabbing;
+}
 .nook-description {
   margin: 0 0 1rem;
   font-style: italic;

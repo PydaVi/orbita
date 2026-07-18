@@ -307,19 +307,7 @@ function renderNotesSection(container, provider, id, notes, season, episode, med
       ]),
       el("span", { class: "mono", text: n.createdAt }),
     ]);
-    const shareBtn = el("button", { class: "share-btn", type: "button", text: "share ⤴" });
-    shareBtn.addEventListener("click", async () => {
-      const url = shareURLFor(rkey);
-      if (navigator.share) {
-        navigator.share({ title: "Órbita", url }).catch(() => {});
-      } else {
-        await navigator.clipboard.writeText(url);
-        const original = shareBtn.textContent;
-        shareBtn.textContent = "copied!";
-        setTimeout(() => (shareBtn.textContent = original), 1500);
-      }
-    });
-    byline.appendChild(shareBtn);
+    byline.appendChild(shareButton("Órbita", shareURLFor(rkey)));
 
     const repliesList = el("ul", { class: "plain replies" });
     for (const rep of n.replies || []) {

@@ -11,6 +11,11 @@ import "database/sql"
 // answer "which works are already organized" — it's fully rebuilt every
 // time a nook is (re)indexed, matching putRecord's own "whole record
 // replaced" semantics.
+// sort_order (not "order" — a reserved SQL word) is gapped (multiples of
+// 1000) so moving one nook to a new position only ever rewrites that one
+// record: the new value is the midpoint between its new neighbors, not a
+// renumbering of every nook. NULL for nooks written before this field
+// existed — they sort after everything with a real value, by created_at.
 const nooksSchema = `
 CREATE TABLE IF NOT EXISTS nooks (
 	uri         TEXT PRIMARY KEY,
@@ -19,6 +24,7 @@ CREATE TABLE IF NOT EXISTS nooks (
 	name        TEXT NOT NULL,
 	description TEXT NOT NULL DEFAULT '',
 	theme       TEXT NOT NULL DEFAULT 'default',
+	sort_order  INTEGER,
 	created_at  TEXT NOT NULL,
 	indexed_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -41,8 +47,10 @@ type WorkRef struct {
 
 // insertNook is also the update path: it replaces nook_items wholesale,
 // matching putRecord's "the whole record was replaced" semantics rather
-// than tracking incremental add/remove operations.
-func insertNook(db *sql.DB, uri, cid, did, name, description, theme, createdAt string, works []WorkRef) error {
+// than tracking incremental add/remove operations. order is a pointer so a
+// nook written without one (older client, or the field genuinely omitted)
+// stores a real NULL instead of a misleading 0.
+func insertNook(db *sql.DB, uri, cid, did, name, description, theme, createdAt string, order *int, works []WorkRef) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -50,12 +58,12 @@ func insertNook(db *sql.DB, uri, cid, did, name, description, theme, createdAt s
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		`INSERT INTO nooks (uri, cid, did, name, description, theme, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO nooks (uri, cid, did, name, description, theme, sort_order, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(uri) DO UPDATE SET
 		   cid = excluded.cid, name = excluded.name, description = excluded.description,
-		   theme = excluded.theme, created_at = excluded.created_at`,
-		uri, cid, did, name, description, theme, createdAt,
+		   theme = excluded.theme, sort_order = excluded.sort_order, created_at = excluded.created_at`,
+		uri, cid, did, name, description, theme, order, createdAt,
 	)
 	if err != nil {
 		return err
@@ -89,14 +97,37 @@ type Nook struct {
 	Name        string
 	Description string
 	Theme       string
+	Order       *int
 	CreatedAt   string
 	Works       []WorkRef
 }
 
+// Nooks with a real sort_order come first (lowest first); nooks without
+// one (written before this field existed) sort after all of those, oldest
+// first — a reasonable default, not a data loss.
+// getNook fetches a single nook by its at:// URI — the shareable nook page
+// needs one record, not the whole account's list.
+func getNook(db *sql.DB, uri string) (*Nook, error) {
+	var n Nook
+	row := db.QueryRow(
+		`SELECT uri, name, description, theme, sort_order, created_at FROM nooks WHERE uri = ?`,
+		uri)
+	if err := row.Scan(&n.URI, &n.Name, &n.Description, &n.Theme, &n.Order, &n.CreatedAt); err != nil {
+		return nil, err
+	}
+	works, err := listNookWorks(db, n.URI)
+	if err != nil {
+		return nil, err
+	}
+	n.Works = works
+	return &n, nil
+}
+
 func listNooksByAccount(db *sql.DB, did string) ([]Nook, error) {
 	rows, err := db.Query(
-		`SELECT uri, name, description, theme, created_at FROM nooks
-		 WHERE did = ? ORDER BY created_at ASC`,
+		`SELECT uri, name, description, theme, sort_order, created_at FROM nooks
+		 WHERE did = ?
+		 ORDER BY (sort_order IS NULL) ASC, sort_order ASC, created_at ASC`,
 		did)
 	if err != nil {
 		return nil, err
@@ -106,7 +137,7 @@ func listNooksByAccount(db *sql.DB, did string) ([]Nook, error) {
 	var nooks []Nook
 	for rows.Next() {
 		var n Nook
-		if err := rows.Scan(&n.URI, &n.Name, &n.Description, &n.Theme, &n.CreatedAt); err != nil {
+		if err := rows.Scan(&n.URI, &n.Name, &n.Description, &n.Theme, &n.Order, &n.CreatedAt); err != nil {
 			return nil, err
 		}
 		nooks = append(nooks, n)
@@ -123,6 +154,18 @@ func listNooksByAccount(db *sql.DB, did string) ([]Nook, error) {
 		nooks[i].Works = works
 	}
 	return nooks, nil
+}
+
+// nextNookOrder is where a newly created nook lands: after everything that
+// already has a real position, gapped so future reorders have room either
+// side of it.
+func nextNookOrder(db *sql.DB, did string) int {
+	var max sql.NullInt64
+	row := db.QueryRow(`SELECT MAX(sort_order) FROM nooks WHERE did = ?`, did)
+	if err := row.Scan(&max); err != nil || !max.Valid {
+		return 1000
+	}
+	return int(max.Int64) + 1000
 }
 
 func listNookWorks(db *sql.DB, nookURI string) ([]WorkRef, error) {

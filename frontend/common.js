@@ -50,6 +50,45 @@ function displayHandle(handle) {
   return handle;
 }
 
+// renderWorkGrid is shared between a nook, the unsorted catch-all, and the
+// standalone shareable nook page — same visual object everywhere, a poster
+// grid.
+function renderWorkGrid(items) {
+  if (!items || items.length === 0) {
+    return el("p", { class: "empty", text: "nothing here yet" });
+  }
+  const grid = el("div", { class: "shelf-grid" });
+  for (const item of items) {
+    const cell = el("a", { href: `/works/${item.provider}/${item.id}`, class: "shelf-grid-item" });
+    if (item.poster) {
+      cell.appendChild(el("img", { src: item.poster, alt: item.title }));
+    } else {
+      cell.appendChild(el("span", { class: "mono", text: item.title }));
+    }
+    grid.appendChild(cell);
+  }
+  return grid;
+}
+
+// shareButton is the one control for handing a URL to someone else — Web
+// Share API on a device that has one, clipboard-copy-with-feedback
+// otherwise. Same behavior everywhere a "share" affordance appears (a note,
+// a nook).
+function shareButton(title, url) {
+  const btn = el("button", { class: "share-btn", type: "button", text: "share ⤴" });
+  btn.addEventListener("click", async () => {
+    if (navigator.share) {
+      navigator.share({ title, url }).catch(() => {});
+    } else {
+      await navigator.clipboard.writeText(url);
+      const original = btn.textContent;
+      btn.textContent = "copied!";
+      setTimeout(() => (btn.textContent = original), 1500);
+    }
+  });
+  return btn;
+}
+
 // Handle/avatar come resolved from the API (see identity.go) — this just
 // renders them: a real image if one resolved, otherwise a plain initial in
 // a circle, never a broken <img> and never a raw DID.

@@ -39,6 +39,7 @@ func main() {
 	serveFrontend("/feed.js", "feed.js")
 	serveFrontend("/profile.js", "profile.js")
 	serveFrontend("/shelf.js", "shelf.js")
+	serveFrontend("/nook.js", "nook.js")
 
 	// Beta 4: the basic site layout — Feed and Profile exist as real pages
 	// (with a real nav to reach them). Beta 5: /profile/{handle} shows any
@@ -59,6 +60,7 @@ func main() {
 	setupList(mux)
 	setupWorks(mux)
 	setupSearch(mux)
+	setupNookPage(mux, db)
 	setupAPI(mux, db)
 
 	addr := ":8092" // 8000 is already taken by comum's api-gateway, running on the same machine
