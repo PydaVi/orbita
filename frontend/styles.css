@@ -169,6 +169,32 @@ a:hover {
   }
 }
 
+/* ---- feed tabs: Shelf / Following / Affinity — plain text controls, no
+   pill/button chrome, consistent with how understated the rest of the
+   navigation already is. ---- */
+.tab-bar {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+}
+.tab {
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tab.active {
+  color: var(--signal);
+}
+
 .mono {
   font-family: var(--font-data);
   color: var(--text-muted);

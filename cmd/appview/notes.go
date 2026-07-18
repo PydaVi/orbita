@@ -1,6 +1,10 @@
 package main
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+)
 
 // Beta 2's write path originally lived here as a classic form POST
 // (/notes/add); Beta 3 replaced it with the JSON endpoint in api.go
@@ -70,6 +74,96 @@ func listNotes(db *sql.DB, provider, workID string, season, episode *int) ([]Not
 	for rows.Next() {
 		var n Note
 		if err := rows.Scan(&n.URI, &n.DID, &n.Text, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		notes = append(notes, n)
+	}
+	return notes, rows.Err()
+}
+
+// FeedNote backs the feed: notes across a set of followed accounts, not
+// just one — the DID is part of the result here, since (unlike
+// listNotesByAccount) it isn't already known by the caller.
+type FeedNote struct {
+	URI       string
+	DID       string
+	Provider  string
+	WorkID    string
+	Season    *int
+	Episode   *int
+	Text      string
+	CreatedAt string
+}
+
+// listNotesByDIDs is the feed's actual query: chronological, deterministic
+// — no ranking, matching this product's own non-negotiable shape for any
+// feed. An empty dids slice (follows nobody, or nobody followed has ever
+// used this appview) returns no rows rather than every note that exists;
+// there's no query to run if there's nothing to filter by.
+func listNotesByDIDs(db *sql.DB, dids []string, limit int) ([]FeedNote, error) {
+	if len(dids) == 0 {
+		return nil, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(dids)), ",")
+	args := make([]any, 0, len(dids)+1)
+	for _, d := range dids {
+		args = append(args, d)
+	}
+	args = append(args, limit)
+
+	query := fmt.Sprintf(
+		`SELECT uri, did, provider, work_id, season, episode, text, created_at FROM notes
+		 WHERE did IN (%s) ORDER BY created_at DESC LIMIT ?`, placeholders)
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notes []FeedNote
+	for rows.Next() {
+		var n FeedNote
+		if err := rows.Scan(&n.URI, &n.DID, &n.Provider, &n.WorkID, &n.Season, &n.Episode, &n.Text, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		notes = append(notes, n)
+	}
+	return notes, rows.Err()
+}
+
+// listNotesByWorks backs the feed's main "Shelf" tab: notes from *anyone*
+// about works on the viewer's own shelf — obra-first, same as the rest of
+// this product, not organized around who wrote something. works is a set
+// of (provider, work_id) pairs; matched with an OR chain rather than
+// SQLite's row-value IN syntax, to stay unambiguous across driver
+// versions for what's normally a short list (one person's shelf).
+func listNotesByWorks(db *sql.DB, works []ShelfItem, limit int) ([]FeedNote, error) {
+	if len(works) == 0 {
+		return nil, nil
+	}
+
+	clauses := make([]string, 0, len(works))
+	args := make([]any, 0, len(works)*2+1)
+	for _, w := range works {
+		clauses = append(clauses, "(provider = ? AND work_id = ?)")
+		args = append(args, w.Provider, w.WorkID)
+	}
+	args = append(args, limit)
+
+	query := fmt.Sprintf(
+		`SELECT uri, did, provider, work_id, season, episode, text, created_at FROM notes
+		 WHERE %s ORDER BY created_at DESC LIMIT ?`, strings.Join(clauses, " OR "))
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notes []FeedNote
+	for rows.Next() {
+		var n FeedNote
+		if err := rows.Scan(&n.URI, &n.DID, &n.Provider, &n.WorkID, &n.Season, &n.Episode, &n.Text, &n.CreatedAt); err != nil {
 			return nil, err
 		}
 		notes = append(notes, n)

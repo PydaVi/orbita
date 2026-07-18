@@ -118,6 +118,25 @@ func resolveHandleToDID(ctx context.Context, handleStr string) (string, error) {
 	return ident.DID.String(), nil
 }
 
+// resolvePDSURL is what the feed needs to read someone's follow list
+// (follows.go) — a DID document's declared PDS endpoint, resolved through
+// the same in-memory-cached directory as everything else here.
+func resolvePDSURL(ctx context.Context, didStr string) (string, error) {
+	did, err := syntax.ParseDID(didStr)
+	if err != nil {
+		return "", err
+	}
+	ident, err := identityDirectory.LookupDID(ctx, did)
+	if err != nil {
+		return "", err
+	}
+	pds, ok := ident.Services["atproto_pds"]
+	if !ok {
+		return "", fmt.Errorf("no PDS declared for %s", didStr)
+	}
+	return pds.URL, nil
+}
+
 // fetchBlueskyProfile reads the account's own app.bsky.actor.profile
 // record straight from its own PDS and returns the avatar (as a resolved
 // getBlob URL) and the bio text — no Bluesky-specific API call, just the

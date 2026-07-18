@@ -35,6 +35,21 @@ type profileNoteEntry struct {
 	CreatedAt string `json:"createdAt"`
 }
 
+type feedNoteEntry struct {
+	URI       string `json:"uri"`
+	DID       string `json:"did"`
+	Handle    string `json:"handle"`
+	AvatarURL string `json:"avatarUrl,omitempty"`
+	Provider  string `json:"provider"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Poster    string `json:"poster,omitempty"`
+	Season    *int   `json:"season,omitempty"`
+	Episode   *int   `json:"episode,omitempty"`
+	Text      string `json:"text"`
+	CreatedAt string `json:"createdAt"`
+}
+
 type profileResponse struct {
 	DID       string              `json:"did"`
 	Handle    string              `json:"handle"`
@@ -308,6 +323,76 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		json.NewEncoder(w).Encode(profileResponse{
 			DID: did, Handle: handle, AvatarURL: avatar, Bio: bio, Shelf: shelf, Notes: notes,
 		})
+	})
+
+	// Beta 6: chronological, deterministic, no ranking — the product's own
+	// non-negotiable shape for any feed. Two tabs for now: "shelf" (the
+	// main one — notes from *anyone* about works on the viewer's own
+	// shelf, obra-first) and "following" (notes from people the viewer
+	// follows, reusing the existing Bluesky follow graph instead of
+	// inventing a parallel one). A third tab, "affinity," belongs here
+	// too but needs the Jaccard computation that doesn't exist yet
+	// (Beta 13) — the frontend shows it as an honest placeholder rather
+	// than this endpoint faking a response for it. Only ever pulls from
+	// social.orbita.note — forum comments, whenever they exist, are
+	// deliberately not feed material. Scoped, for now, to accounts that
+	// have already used this appview — real fan-out is Beta 11.
+	mux.HandleFunc("GET /api/feed", func(w http.ResponseWriter, r *http.Request) {
+		did, _ := currentSessionDID(r)
+		if did == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		tab := r.URL.Query().Get("tab")
+		if tab == "" {
+			tab = "shelf"
+		}
+
+		var notes []FeedNote
+		var err error
+		switch tab {
+		case "shelf":
+			shelfItems, shelfErr := listShelfItemsByAccount(db, did.String())
+			if shelfErr != nil {
+				http.Error(w, shelfErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			notes, err = listNotesByWorks(db, shelfItems, 50)
+		case "following":
+			pdsURL, pdsErr := resolvePDSURL(r.Context(), did.String())
+			if pdsErr != nil {
+				http.Error(w, fmt.Sprintf("could not resolve your PDS: %v", pdsErr), http.StatusInternalServerError)
+				return
+			}
+			followedDIDs, followErr := fetchFollowedDIDs(r.Context(), pdsURL, did.String())
+			if followErr != nil {
+				http.Error(w, fmt.Sprintf("could not read your follows: %v", followErr), http.StatusInternalServerError)
+				return
+			}
+			notes, err = listNotesByDIDs(db, followedDIDs, 50)
+		default:
+			http.Error(w, fmt.Sprintf("unknown feed tab %q", tab), http.StatusBadRequest)
+			return
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		entries := make([]feedNoteEntry, 0, len(notes))
+		for _, n := range notes {
+			handle, avatar := resolveIdentity(r.Context(), db, n.DID)
+			title, poster, _ := displayWork(db, n.Provider, n.WorkID)
+			entries = append(entries, feedNoteEntry{
+				URI: n.URI, DID: n.DID, Handle: handle, AvatarURL: avatar,
+				Provider: n.Provider, ID: n.WorkID, Title: title, Poster: poster,
+				Season: n.Season, Episode: n.Episode, Text: n.Text, CreatedAt: n.CreatedAt,
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"notes": entries})
 	})
 
 	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {

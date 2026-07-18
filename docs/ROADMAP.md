@@ -5,18 +5,30 @@ with real scope, open questions, and a status once we actually start it — same
 process as Beta 0/1/2. This file exists so the order and the "why this, why
 now" of the whole arc is visible in one place, before any of it is detailed.
 
-Beta 0 through 5 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
+Beta 0 through 6 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
 [`BETA1-PLAN.md`](BETA1-PLAN.md), [`BETA2-PLAN.md`](BETA2-PLAN.md),
 [`BETA3-PLAN.md`](BETA3-PLAN.md), [`BETA4-PLAN.md`](BETA4-PLAN.md),
-[`BETA5-PLAN.md`](BETA5-PLAN.md). Real UI (Beta 3) landed ahead of
-everything else on this list — not last, as originally sketched —
-precisely because a profile is hard to reason about without a screen to
-look at, and Beta 4 gave every page from here on a persistent shell
-(topbar, nav) to live inside instead of being its own island. What follows
-is what's left before there's a beta worth actually presenting to someone
-outside this project.
+[`BETA5-PLAN.md`](BETA5-PLAN.md), [`BETA6-PLAN.md`](BETA6-PLAN.md). Real UI
+(Beta 3) landed ahead of everything else on this list — not last, as
+originally sketched — precisely because a profile is hard to reason about
+without a screen to look at, and Beta 4 gave every page from here on a
+persistent shell (topbar, nav) to live inside instead of being its own
+island. What follows is what's left before there's a beta worth actually
+presenting to someone outside this project.
 
-## Beta 6 — feed
+## Beta 6 — feed ✅
+
+Three tabs — **Shelf** (main: notes from anyone about works on your own
+shelf, obra-first), **Following** (notes from people you follow, via the
+existing Bluesky follow graph), **Affinity** (an honest placeholder — needs
+the Jaccard computation from Beta 13). Chronological, no ranking, only
+`social.orbita.note` — see [`BETA6-PLAN.md`](BETA6-PLAN.md) for the full
+account, including a correction caught mid-build: the original sketch below
+only named a single "Following" tab before the real three-tab shape was
+restored.
+
+<details>
+<summary>original sketch (superseded, kept for history)</summary>
 
 **Problem:** right now there's no page that's actually useful to check
 day-to-day — everything lives on a single work's or person's page. A feed
@@ -36,6 +48,8 @@ what scale is this actually meaningful before real fan-out (below) exists —
 likely starts scoped to accounts that have already logged into this
 appview, same small-scale aggregation every beta so far has used, with
 true cross-network discovery arriving whenever fan-out does.
+
+</details>
 
 ## Beta 7 — the shelf as a creative space
 
