@@ -49,7 +49,7 @@
       "properties": {
         "theme": {
           "type": "string",
-          "knownValues": ["default", "warm", "cool", "midnight"]
+          "knownValues": ["default", "warm", "cool", "midnight", "riso", "indigo", "manifesto"]
         }
       }
     }

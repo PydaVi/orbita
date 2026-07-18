@@ -44,18 +44,30 @@
   --rule: #2b2b33;
   --signal: #d98a3d;
 
-  /* Duotone highlight tones for the three named nook themes (default
-     stays untinted — it makes no visual claim). These are the *light*
-     end of each theme's two-color photographic treatment (see
+  /* Duotone highlight tones for the six named nook themes (default stays
+     untinted — it makes no visual claim). These are the *light* end of
+     each theme's two-color photographic treatment (see
      ensureDuotoneDefs() in common.js) — the shadow end goes darker than
-     any of these, near-black or fully black, so a mismatched poster,
-     album cover, and book jacket read as one coherent mood, the way a
-     Blue Note sleeve unified whatever photo Reid Miles was handed. The
-     SVG filter tables in common.js encode the same three colors as
-     normalized numbers and must be kept in sync by hand if these change. */
+     any of these so a mismatched poster, album cover, and book jacket
+     read as one coherent mood. Three references, each picked for a
+     distinct emotional register rather than just a distinct hue: warm/
+     cool/midnight from Blue Note's duotone jazz sleeves (Reid Miles);
+     riso from actual Risograph ink (Teal + Fluorescent Pink are real
+     stocked ink colors, not an invented approximation — riso printing is
+     duotone by physical construction, two flat inks overprinted);
+     indigo from aizuri-e, the Edo-period ukiyo-e genre printed almost
+     entirely in one blue ink (Prussian blue, popularized in Japan in the
+     1820s) reserved for contemplative landscape work; manifesto from
+     Soviet Constructivist poster design (Rodchenko/Lissitzky), flag-red
+     against near-black, the most urgent register of the set. The SVG
+     filter tables in common.js encode the same colors as normalized
+     numbers and must be kept in sync by hand if these change. */
   --duo-warm-hi: #e2a45c;
   --duo-cool-hi: #8fb4d1;
   --duo-mid-hi: #4a5578;
+  --duo-riso-hi: #ff48b0;
+  --duo-indigo-hi: #a8c9d9;
+  --duo-manifesto-hi: #d7301f;
 
   --font-title: "Spectral", serif;
   --font-body: "Space Grotesk", sans-serif;
@@ -377,9 +389,21 @@ section {
 .nook-midnight {
   border-top: 4px solid var(--duo-mid-hi);
 }
+.nook-riso {
+  border-top: 4px solid var(--duo-riso-hi);
+}
+.nook-indigo {
+  border-top: 4px solid var(--duo-indigo-hi);
+}
+.nook-manifesto {
+  border-top: 4px solid var(--duo-manifesto-hi);
+}
 .nook-warm::after,
 .nook-cool::after,
-.nook-midnight::after {
+.nook-midnight::after,
+.nook-riso::after,
+.nook-indigo::after,
+.nook-manifesto::after {
   content: "";
   position: absolute;
   top: -1px;
@@ -395,6 +419,15 @@ section {
 }
 .nook-midnight::after {
   background: var(--duo-mid-hi);
+}
+.nook-riso::after {
+  background: var(--duo-riso-hi);
+}
+.nook-indigo::after {
+  background: var(--duo-indigo-hi);
+}
+.nook-manifesto::after {
+  background: var(--duo-manifesto-hi);
 }
 section h2 {
   font-family: var(--font-body);
@@ -554,6 +587,15 @@ ul.plain li.empty,
 .nook-midnight .shelf-grid-item {
   --frame-accent: var(--duo-mid-hi);
 }
+.nook-riso .shelf-grid-item {
+  --frame-accent: var(--duo-riso-hi);
+}
+.nook-indigo .shelf-grid-item {
+  --frame-accent: var(--duo-indigo-hi);
+}
+.nook-manifesto .shelf-grid-item {
+  --frame-accent: var(--duo-manifesto-hi);
+}
 .nook-warm .shelf-grid-item img {
   filter: url(#duotone-warm);
 }
@@ -563,9 +605,21 @@ ul.plain li.empty,
 .nook-midnight .shelf-grid-item img {
   filter: url(#duotone-midnight);
 }
+.nook-riso .shelf-grid-item img {
+  filter: url(#duotone-riso);
+}
+.nook-indigo .shelf-grid-item img {
+  filter: url(#duotone-indigo);
+}
+.nook-manifesto .shelf-grid-item img {
+  filter: url(#duotone-manifesto);
+}
 .nook-warm .shelf-grid-item:hover img,
 .nook-cool .shelf-grid-item:hover img,
-.nook-midnight .shelf-grid-item:hover img {
+.nook-midnight .shelf-grid-item:hover img,
+.nook-riso .shelf-grid-item:hover img,
+.nook-indigo .shelf-grid-item:hover img,
+.nook-manifesto .shelf-grid-item:hover img {
   filter: none;
 }
 @media (prefers-reduced-motion: reduce) {

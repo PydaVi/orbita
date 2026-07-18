@@ -229,16 +229,19 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
   return row;
 }
 
-// Blue Note album-cover duotone: two flat ink colors mapped across each
-// photo's own luminance (feColorMatrix desaturates to grayscale,
-// feComponentTransfer remaps black to the theme's shadow tone and white to
-// its highlight tone) — the same trick that let Reid Miles's sleeve design
-// unify whatever mismatched source photo he'd been handed under one
-// coherent mood. Injected once per page load (idempotent, checked by id).
-// The three highlight tones must match --duo-warm-hi/--duo-cool-hi/
-// --duo-mid-hi in styles.css by hand — SVG filter tables take normalized
-// numbers, not CSS custom properties, so there's no way to share one
-// source of truth here.
+// Duotone: two flat ink colors mapped across each photo's own luminance
+// (feColorMatrix desaturates to grayscale, feComponentTransfer remaps
+// black to the theme's shadow tone and white to its highlight tone) — the
+// mechanism behind Blue Note's jazz sleeves (warm/cool/midnight), actual
+// Risograph ink overprinting (riso — Teal + Fluorescent Pink are real
+// stocked riso ink colors), aizuri-e ukiyo-e "blue pictures" (indigo —
+// Prussian blue, popularized in Japan in the 1820s, reserved for
+// contemplative landscape prints), and Soviet Constructivist poster design
+// (manifesto — flag-red on near-black). Injected once per page load
+// (idempotent, checked by id). Each highlight tone must match its
+// --duo-*-hi custom property in styles.css by hand — SVG filter tables
+// take normalized numbers, not CSS custom properties, so there's no way to
+// share one source of truth here.
 function ensureDuotoneDefs() {
   if (document.getElementById("duotone-defs")) return;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -271,6 +274,30 @@ function ensureDuotoneDefs() {
         <feFuncR type="table" tableValues="0 0.290"></feFuncR>
         <feFuncG type="table" tableValues="0 0.333"></feFuncG>
         <feFuncB type="table" tableValues="0 0.471"></feFuncB>
+      </feComponentTransfer>
+    </filter>
+    <filter id="duotone-riso" color-interpolation-filters="sRGB">
+      ${grayscale}
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0 1"></feFuncR>
+        <feFuncG type="table" tableValues="0.514 0.282"></feFuncG>
+        <feFuncB type="table" tableValues="0.541 0.690"></feFuncB>
+      </feComponentTransfer>
+    </filter>
+    <filter id="duotone-indigo" color-interpolation-filters="sRGB">
+      ${grayscale}
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0.051 0.659"></feFuncR>
+        <feFuncG type="table" tableValues="0.141 0.788"></feFuncG>
+        <feFuncB type="table" tableValues="0.212 0.851"></feFuncB>
+      </feComponentTransfer>
+    </filter>
+    <filter id="duotone-manifesto" color-interpolation-filters="sRGB">
+      ${grayscale}
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0.039 0.843"></feFuncR>
+        <feFuncG type="table" tableValues="0.039 0.188"></feFuncG>
+        <feFuncB type="table" tableValues="0.039 0.122"></feFuncB>
       </feComponentTransfer>
     </filter>
   `;

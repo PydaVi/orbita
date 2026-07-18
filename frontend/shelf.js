@@ -7,7 +7,7 @@
 // to reorder, nooks on top, whatever's still unsorted underneath. Native
 // HTML5 drag-and-drop, no library.
 
-const NOOK_THEMES = ["default", "warm", "cool", "midnight"];
+const NOOK_THEMES = ["default", "warm", "cool", "midnight", "riso", "indigo", "manifesto"];
 
 async function init() {
   const app = renderShell("shelf");
