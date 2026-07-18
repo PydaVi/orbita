@@ -417,12 +417,104 @@ ul.plain li.empty,
 .shelf-grid-item {
   display: block;
   border-bottom: none;
+  position: relative;
 }
-.shelf-grid-item img {
+.shelf-grid-item img,
+.shelf-grid-item span.mono {
   display: block;
   width: 100%;
+}
+.shelf-grid-item img {
   height: auto;
   border: 1px solid var(--rule);
+  transition: border-color 0.15s ease;
+}
+
+/* ---- drag-and-drop organizing: native HTML5 DnD, no library. A poster
+   being dragged fades; drop targets don't need a visual hover state of
+   their own since the browser's own drag cursor already signals it. ---- */
+.draggable-work {
+  cursor: grab;
+}
+.draggable-work.dragging {
+  opacity: 0.4;
+}
+.poster-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  line-height: 18px;
+  text-align: center;
+  padding: 0;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+.shelf-grid-item:hover .poster-remove {
+  opacity: 1;
+}
+.poster-remove:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+
+/* ---- a nook's own theme extends to the frame around each poster inside
+   it, not just the section's background — the curated choice reaches the
+   works themselves. ---- */
+.nook-warm .shelf-grid-item img {
+  border-color: color-mix(in srgb, var(--signal) 50%, var(--rule));
+  border-width: 2px;
+}
+.nook-cool .shelf-grid-item img {
+  border-color: color-mix(in srgb, #6f8fb0 45%, var(--rule));
+  border-width: 2px;
+}
+.nook-midnight .shelf-grid-item img {
+  border-color: var(--rule);
+  box-shadow: 0 0 0 3px color-mix(in srgb, black 40%, var(--surface));
+}
+
+/* ---- nook management controls (/shelf only) ---- */
+.nook-controls {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.action-btn-text {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 0;
+}
+.action-btn-text:hover {
+  color: var(--signal);
+}
+.nook-settings {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  align-items: center;
+}
+.nook-settings input,
+.nook-settings select {
+  width: auto;
+}
+.nook-new {
+  border: 1px dashed var(--rule);
+  display: flex;
+  align-items: center;
+  min-height: 3rem;
+}
+.nook-new input {
+  width: auto;
 }
 .account-row {
   display: flex;

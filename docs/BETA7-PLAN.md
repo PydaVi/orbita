@@ -19,6 +19,7 @@ Flagged early (2026-07-17) as potentially **the apex of the whole product**: the
 4. **The profile groups by nook.** ✅ **Built.** `GET /api/profile/{handle}` returns `nooks` (each with its own works resolved to title/poster) and `unsorted` (shelf items not in any nook) instead of one flat `shelf` array. Unsorted is never hidden or folded into a default grouping — a freshly shelved work sits there honestly until the person places it somewhere.
 5. **Curated presentation themes.** ✅ **Built.** Four themes (`default`/`warm`/`cool`/`midnight`), implemented as CSS classes derived from the existing Observatório tokens (`color-mix` against `--signal`/`--surface`, no new hex values introduced) — personalization stays inside the product's own palette rather than opening a free color picker.
 6. **Nook management lives on `/shelf`, presentation lives on `/profile`.** ✅ **Built.** Matches the split `/shelf`/`/profile` already established in Beta 4/5 — manage your own things privately in one place, see how they present publicly in another.
+7. **Direct manipulation, reworked after first review (2026-07-18).** ✅ **Built.** The first pass used a form (name/description/theme fields, a checkbox list to pick works) — reviewed and replaced: creating a nook is now a single click plus a name, no other fields up front; populating and reordering one is native HTML5 drag-and-drop (no library) — drag a poster from Unsorted into a nook, drag within a nook to reposition, drag back out to un-sort it. Posters render everywhere works are picked or arranged, never plain text names. Nooks render above the page, the Unsorted grid below — the visual order matches "this is organized, this isn't" directly. A small "remove from shelf" control and a lightweight settings toggle (description/theme) stay available, just secondary to the drag interaction itself.
 
 ## Decisions made in planning conversation
 
@@ -30,7 +31,6 @@ Flagged early (2026-07-17) as potentially **the apex of the whole product**: the
 
 ## Explicitly not in this beta
 
-- Drag-and-drop reordering — the current UI uses plain remove/add controls; a nook's order can still be set (via the API, or a future richer editor), just not via drag gestures yet.
 - Constellation/archetype awareness of nooks (Beta 8, next) — how those visualize a shelf organized this way is an open question for that beta, not resolved here.
 - Any change to how `/shelf` (the private management list) itself looks — nooks organize the *public presentation*, not the private list.
 

@@ -1,6 +1,13 @@
 // Beta 4 (reconsidered mid-build, 2026-07-17): not "everyone's shelf" — a
 // global, unscoped list served no real purpose. This is your own shelf,
 // gated by sign-in, same as everywhere else that writes to a PDS.
+//
+// Beta 7 (reworked, 2026-07-18): organizing into nooks is direct
+// manipulation, not a form — drag a poster into a nook, drag within a nook
+// to reorder, nooks on top, whatever's still unsorted underneath. Native
+// HTML5 drag-and-drop, no library.
+
+const NOOK_THEMES = ["default", "warm", "cool", "midnight"];
 
 async function init() {
   const app = renderShell("shelf");
@@ -23,231 +30,291 @@ async function init() {
     return;
   }
 
-  const list = el("ul", { class: "plain" });
-  for (const item of items) {
-    list.appendChild(renderItem(item, list));
-  }
-  if (items.length === 0) {
-    list.appendChild(el("li", { class: "empty", text: "nothing on your shelf yet" }));
-  }
-  app.appendChild(list);
-
-  // Beta 7: nooks are managed here (privately, on your own shelf), shown
-  // to visitors on the profile — the same reasoning /shelf already
-  // follows for the shelf itself (manage here, presented there).
   let nooks = [];
   try {
     const profile = await fetchJSON(`/api/profile/${viewer.handle}`);
     nooks = profile.nooks || [];
   } catch {
-    // Non-fatal — the shelf list above already loaded fine; nook
-    // management just won't have anything to show yet.
+    // Non-fatal — the shelf still loaded; nooks just won't have anything
+    // to show yet.
   }
-  renderNooksSection(app, items, nooks);
+
+  const state = { items, nooks };
+  const root = el("div", {});
+  app.appendChild(root);
+  renderOrganizer(root, state);
 }
 
-function renderItem(item, list) {
-  const children = [];
-  if (item.poster) {
-    children.push(el("img", { src: item.poster, class: "episode-still", alt: "" }));
-  }
-  children.push(
-    el("a", {
-      href: `/works/${item.provider}/${item.id}`,
-      class: "episode-summary-text",
-      text: item.title,
-    })
-  );
-  children.push(el("span", { class: "mono", text: item.addedAt }));
+function workKey(w) {
+  return `${w.provider}/${w.id}`;
+}
 
-  const removeButton = el("button", { type: "button", text: "remove" });
-  removeButton.addEventListener("click", async () => {
-    removeButton.disabled = true;
+async function saveNook(nook) {
+  try {
+    const body = {
+      name: nook.name,
+      description: nook.description || "",
+      theme: nook.theme,
+      works: nook.works.map((w) => ({ provider: w.provider, id: w.id })),
+    };
+    const updated = await fetchJSON(`/api/nooks/${rkeyOf(nook.uri)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    nook.works = updated.works;
+  } catch (err) {
+    alert(`failed to save nook: ${err}`);
+  }
+}
+
+// A poster is the one draggable unit everywhere it appears — in a nook or
+// in the unsorted grid. Dropping ON one inserts before/after it (whichever
+// half of it you dropped on); dropping on empty space in a container
+// appends at the end (handled by the container's own drop listener, which
+// only fires when a child's listener didn't already stop it).
+function renderPoster(work, { fromNookUri, onMove, onRemove }) {
+  const cell = el("div", { class: "shelf-grid-item draggable-work" });
+  cell.setAttribute("draggable", "true");
+  cell.title = work.title;
+  if (work.poster) {
+    cell.appendChild(el("img", { src: work.poster, alt: work.title }));
+  } else {
+    cell.appendChild(el("span", { class: "mono", text: work.title }));
+  }
+  const removeBtn = el("button", { type: "button", class: "poster-remove", title: "Remove from shelf", text: "×" });
+  removeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    onRemove(work);
+  });
+  cell.appendChild(removeBtn);
+
+  cell.addEventListener("dragstart", (e) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/json", JSON.stringify({ provider: work.provider, id: work.id, fromNook: fromNookUri || null }));
+    cell.classList.add("dragging");
+  });
+  cell.addEventListener("dragend", () => cell.classList.remove("dragging"));
+  cell.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  cell.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const data = JSON.parse(e.dataTransfer.getData("application/json"));
+    const rect = cell.getBoundingClientRect();
+    const before = e.clientX - rect.left < rect.width / 2;
+    onMove(data, work, before);
+  });
+  return cell;
+}
+
+function makeDropContainer(grid, onDropEmpty) {
+  grid.addEventListener("dragover", (e) => e.preventDefault());
+  grid.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const data = JSON.parse(e.dataTransfer.getData("application/json"));
+    onDropEmpty(data);
+  });
+}
+
+function renderOrganizer(root, state) {
+  root.innerHTML = "";
+
+  const rerender = () => renderOrganizer(root, state);
+
+  const removeFromShelf = async (work) => {
+    const key = workKey(work);
+    for (const nook of state.nooks) {
+      if (nook.works.some((w) => workKey(w) === key)) {
+        nook.works = nook.works.filter((w) => workKey(w) !== key);
+        await saveNook(nook);
+      }
+    }
+    const item = state.items.find((it) => workKey(it) === key);
     try {
       await fetchJSON("/api/shelf/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uri: item.uri }),
       });
-      row.remove();
-      if (!list.querySelector("li")) {
-        list.appendChild(el("li", { class: "empty", text: "nothing on your shelf yet" }));
-      }
+      state.items = state.items.filter((it) => workKey(it) !== key);
+      rerender();
     } catch (err) {
-      alert(`failed to remove: ${err}`);
-      removeButton.disabled = false;
+      alert(`failed to remove from shelf: ${err}`);
     }
-  });
-  children.push(removeButton);
-
-  const row = el("li", { class: "account-row" }, children);
-  return row;
-}
-
-const NOOK_THEMES = ["default", "warm", "cool", "midnight"];
-
-// Beta 7: nooks are the primary way a shelf is organized and shown to
-// visitors — managed here on your own shelf, presented on your profile.
-// "Editing" a nook (add/remove a work) resends its whole works array via
-// PUT (com.atproto.repo.putRecord replaces the record), there's no
-// separate membership record to patch incrementally.
-function renderNooksSection(app, shelfItems, nooks) {
-  const section = el("section", {}, [el("h2", { text: "Nooks" })]);
-  const nookList = el("div", {});
-  section.appendChild(nookList);
-
-  const shelfByKey = new Map(shelfItems.map((it) => [`${it.provider}/${it.id}`, it]));
-
-  const renderExistingNook = (nook) => {
-    const box = el("div", { class: `nook nook-${nook.theme}` }, [
-      el("h2", { text: nook.name }),
-    ]);
-    if (nook.description) box.appendChild(el("p", { class: "mono nook-description", text: nook.description }));
-
-    const worksList = el("ul", { class: "plain" });
-    const currentWorks = () => nook.works.map((w) => ({ provider: w.provider, id: w.id }));
-
-    const rerenderWorks = () => {
-      worksList.innerHTML = "";
-      for (const w of nook.works) {
-        const removeBtn = el("button", { type: "button", text: "remove" });
-        removeBtn.addEventListener("click", async () => {
-          nook.works = nook.works.filter((x) => !(x.provider === w.provider && x.id === w.id));
-          await saveNook(nook, currentWorks());
-          rerenderWorks();
-        });
-        worksList.appendChild(
-          el("li", { class: "account-row" }, [el("span", { text: `${w.title}` }), removeBtn])
-        );
-      }
-      if (nook.works.length === 0) {
-        worksList.appendChild(el("li", { class: "empty", text: "no works in this nook yet" }));
-      }
-    };
-    rerenderWorks();
-    box.appendChild(worksList);
-
-    const notInNook = () => shelfItems.filter((it) => !nook.works.some((w) => w.provider === it.provider && w.id === it.id));
-    const addRow = el("div", {});
-    const rebuildAddRow = () => {
-      addRow.innerHTML = "";
-      const remaining = notInNook();
-      if (remaining.length === 0) return;
-      const select = el(
-        "select",
-        {},
-        remaining.map((it) => el("option", { value: `${it.provider}/${it.id}`, text: it.title }))
-      );
-      const addBtn = el("button", { type: "button", text: "+ add work" });
-      addBtn.addEventListener("click", async () => {
-        const [provider, id] = select.value.split("/");
-        const item = shelfByKey.get(`${provider}/${id}`);
-        nook.works.push({ provider, id, title: item ? item.title : id });
-        await saveNook(nook, currentWorks());
-        rerenderWorks();
-        rebuildAddRow();
-      });
-      addRow.appendChild(select);
-      addRow.appendChild(addBtn);
-    };
-    rebuildAddRow();
-    box.appendChild(addRow);
-
-    const deleteBtn = el("button", { type: "button", text: "delete nook" });
-    deleteBtn.addEventListener("click", async () => {
-      if (!confirm(`Delete "${nook.name}"? The works stay on your shelf, unsorted.`)) return;
-      try {
-        await fetchJSON("/api/nooks/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uri: nook.uri }),
-        });
-        box.remove();
-      } catch (err) {
-        alert(`failed to delete nook: ${err}`);
-      }
-    });
-    box.appendChild(el("p", {}, [deleteBtn]));
-
-    return box;
   };
 
-  async function saveNook(nook, works) {
-    try {
-      const updated = await fetchJSON(`/api/nooks/${rkeyOf(nook.uri)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nook.name, description: nook.description, theme: nook.theme, works }),
-      });
-      nook.works = updated.works;
-    } catch (err) {
-      alert(`failed to update nook: ${err}`);
+  // The one place a dragged poster actually gets moved: pulled out of
+  // wherever it came from, inserted at the target position (or appended,
+  // if dropped on empty space), then whichever nook(s) changed get saved.
+  const moveWork = async (data, targetNookUri, beforeWork, before) => {
+    const key = `${data.provider}/${data.id}`;
+    const touched = new Set();
+
+    if (data.fromNook) {
+      const src = state.nooks.find((n) => n.uri === data.fromNook);
+      if (src) {
+        src.works = src.works.filter((w) => workKey(w) !== key);
+        touched.add(src.uri);
+      }
     }
-  }
 
-  for (const nook of nooks) {
-    nookList.appendChild(renderExistingNook(nook));
-  }
-  if (nooks.length === 0) {
-    nookList.appendChild(el("p", { class: "empty", text: "no nooks yet" }));
-  }
+    if (targetNookUri) {
+      const target = state.nooks.find((n) => n.uri === targetNookUri);
+      if (target) {
+        const source = state.items.find((it) => workKey(it) === key) || { ...data, title: data.id };
+        const entry = { provider: source.provider, id: source.id, title: source.title, poster: source.poster };
+        if (beforeWork) {
+          const idx = target.works.findIndex((w) => workKey(w) === workKey(beforeWork));
+          target.works.splice(idx < 0 ? target.works.length : before ? idx : idx + 1, 0, entry);
+        } else {
+          target.works.push(entry);
+        }
+        touched.add(target.uri);
+      }
+    }
 
-  // ---- new nook form ----
-  const nameInput = el("input", { type: "text", placeholder: "name (e.g. cold days)" });
-  const descInput = el("input", { type: "text", placeholder: "description (optional)" });
-  const themeSelect = el(
-    "select",
-    {},
-    NOOK_THEMES.map((t) => el("option", { value: t, text: t }))
-  );
-  const checkboxes = shelfItems.map((it) => {
-    const cb = el("input", { type: "checkbox", value: `${it.provider}/${it.id}` });
-    return { item: it, cb };
+    for (const uri of touched) {
+      const nook = state.nooks.find((n) => n.uri === uri);
+      if (nook) await saveNook(nook);
+    }
+    rerender();
+  };
+
+  // ---- nooks, on top ----
+  for (const nook of state.nooks) {
+    root.appendChild(renderNookBox(nook, state, { moveWork, removeFromShelf, rerender }));
+  }
+  root.appendChild(renderNewNookTrigger(state, rerender));
+
+  // ---- unsorted, underneath ----
+  const nookedKeys = new Set(state.nooks.flatMap((n) => n.works.map(workKey)));
+  const unsorted = state.items.filter((it) => !nookedKeys.has(workKey(it)));
+
+  const unsortedSection = el("section", {}, [el("h2", { text: `Unsorted (${unsorted.length})` })]);
+  const unsortedGrid = el("div", { class: "shelf-grid" });
+  makeDropContainer(unsortedGrid, (data) => moveWork(data, null, null, false));
+  for (const item of unsorted) {
+    unsortedGrid.appendChild(renderPoster(item, { fromNookUri: null, onMove: (data, w, before) => moveWork(data, null, w, before), onRemove: removeFromShelf }));
+  }
+  if (unsorted.length === 0) {
+    unsortedGrid.appendChild(el("p", { class: "empty", text: "everything is organized into a nook" }));
+  }
+  unsortedSection.appendChild(unsortedGrid);
+  root.appendChild(unsortedSection);
+}
+
+function renderNookBox(nook, state, { moveWork, removeFromShelf, rerender }) {
+  const box = el("div", { class: `nook nook-${nook.theme}` }, [el("h2", { text: nook.name })]);
+  if (nook.description) box.appendChild(el("p", { class: "mono nook-description", text: nook.description }));
+
+  const grid = el("div", { class: "shelf-grid" });
+  makeDropContainer(grid, (data) => moveWork(data, nook.uri, null, false));
+  for (const work of nook.works) {
+    grid.appendChild(
+      renderPoster(work, {
+        fromNookUri: nook.uri,
+        onMove: (data, w, before) => moveWork(data, nook.uri, w, before),
+        onRemove: removeFromShelf,
+      })
+    );
+  }
+  if (nook.works.length === 0) {
+    grid.appendChild(el("p", { class: "empty", text: "drag works here" }));
+  }
+  box.appendChild(grid);
+
+  const controls = el("div", { class: "nook-controls" });
+
+  const settingsBtn = el("button", { type: "button", class: "action-btn-text", text: "edit" });
+  const settingsBox = el("div", { class: "nook-settings", style: "display:none" });
+  const descInput = el("input", { type: "text", value: nook.description || "", placeholder: "description" });
+  const themeSelect = el("select", {}, NOOK_THEMES.map((t) => el("option", { value: t, text: t, ...(t === nook.theme ? { selected: "selected" } : {}) })));
+  const saveBtn = el("button", { type: "button", text: "Save" });
+  saveBtn.addEventListener("click", async () => {
+    nook.description = descInput.value.trim();
+    nook.theme = themeSelect.value;
+    await saveNook(nook);
+    rerender();
   });
-  const pickList = el(
-    "div",
-    {},
-    checkboxes.map(({ item, cb }) => el("label", { class: "nook-pick" }, [cb, el("span", { text: ` ${item.title}` })]))
-  );
-  const createBtn = el("button", { type: "button", text: "Create nook" });
-  createBtn.addEventListener("click", async () => {
-    const name = nameInput.value.trim();
-    if (!name) return;
-    const works = checkboxes
-      .filter(({ cb }) => cb.checked)
-      .map(({ item }) => ({ provider: item.provider, id: item.id }));
-    createBtn.disabled = true;
+  settingsBox.appendChild(descInput);
+  settingsBox.appendChild(themeSelect);
+  settingsBox.appendChild(saveBtn);
+  settingsBtn.addEventListener("click", () => {
+    settingsBox.style.display = settingsBox.style.display === "none" ? "flex" : "none";
+  });
+
+  const deleteBtn = el("button", { type: "button", class: "action-btn-text", text: "delete" });
+  deleteBtn.addEventListener("click", async () => {
+    if (!confirm(`Delete "${nook.name}"? The works stay on your shelf, unsorted.`)) return;
+    try {
+      await fetchJSON("/api/nooks/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uri: nook.uri }),
+      });
+      state.nooks = state.nooks.filter((n) => n.uri !== nook.uri);
+      rerender();
+    } catch (err) {
+      alert(`failed to delete nook: ${err}`);
+    }
+  });
+
+  controls.appendChild(settingsBtn);
+  controls.appendChild(deleteBtn);
+  box.appendChild(controls);
+  box.appendChild(settingsBox);
+
+  return box;
+}
+
+// Lightweight creation, no form: click, type a name, done — filling it is
+// a drag away, not a follow-up step in the same dialog.
+function renderNewNookTrigger(state, rerender) {
+  const wrap = el("div", { class: "nook nook-new" });
+  const trigger = el("button", { type: "button", class: "action-btn-text", text: "+ New nook" });
+  const input = el("input", { type: "text", placeholder: "name…", style: "display:none" });
+
+  const create = async () => {
+    const name = input.value.trim();
+    if (!name) {
+      input.style.display = "none";
+      trigger.style.display = "inline-flex";
+      return;
+    }
     try {
       const created = await fetchJSON("/api/nooks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: descInput.value.trim(), theme: themeSelect.value, works }),
+        body: JSON.stringify({ name, description: "", theme: "default", works: [] }),
       });
-      nameInput.value = "";
-      descInput.value = "";
-      for (const { cb } of checkboxes) cb.checked = false;
-      const emptyMsg = nookList.querySelector(".empty");
-      if (emptyMsg) emptyMsg.remove();
-      nookList.appendChild(renderExistingNook(created));
+      state.nooks.push(created);
+      rerender();
     } catch (err) {
       alert(`failed to create nook: ${err}`);
-    } finally {
-      createBtn.disabled = false;
+    }
+  };
+
+  trigger.addEventListener("click", () => {
+    trigger.style.display = "none";
+    input.style.display = "block";
+    input.focus();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") create();
+    if (e.key === "Escape") {
+      input.value = "";
+      input.style.display = "none";
+      trigger.style.display = "inline-flex";
     }
   });
+  input.addEventListener("blur", create);
 
-  section.appendChild(
-    el("div", { class: "new-nook" }, [
-      el("h2", { text: "New nook" }),
-      nameInput,
-      descInput,
-      themeSelect,
-      pickList,
-      createBtn,
-    ])
-  );
-
-  app.appendChild(section);
+  wrap.appendChild(trigger);
+  wrap.appendChild(input);
+  return wrap;
 }
 
 init();
