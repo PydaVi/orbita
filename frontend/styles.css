@@ -44,6 +44,19 @@
   --rule: #2b2b33;
   --signal: #d98a3d;
 
+  /* Duotone highlight tones for the three named nook themes (default
+     stays untinted — it makes no visual claim). These are the *light*
+     end of each theme's two-color photographic treatment (see
+     ensureDuotoneDefs() in common.js) — the shadow end goes darker than
+     any of these, near-black or fully black, so a mismatched poster,
+     album cover, and book jacket read as one coherent mood, the way a
+     Blue Note sleeve unified whatever photo Reid Miles was handed. The
+     SVG filter tables in common.js encode the same three colors as
+     normalized numbers and must be kept in sync by hand if these change. */
+  --duo-warm-hi: #e2a45c;
+  --duo-cool-hi: #8fb4d1;
+  --duo-mid-hi: #4a5578;
+
   --font-title: "Spectral", serif;
   --font-body: "Space Grotesk", sans-serif;
   --font-data: "Space Mono", monospace;
@@ -322,13 +335,22 @@ section {
 }
 
 /* ---- nooks: a small, curated set of presentation choices (see the
-   Lexicon's own style def) — never a free color picker. Enough to feel
-   like the person's own corner without any profile clashing with the
-   product's own palette or breaking dark/light contrast. ---- */
+   Lexicon's own style def) — never a free color picker. Redone after
+   Beta 7 shipped, studying Bauhaus/Swiss grid discipline (already this
+   product's spine), Blue Note's duotone sleeves, and De Stijl's flat,
+   confident color blocking: a soft background wash reads as a timid
+   gradient no matter how faint, so the theme signal moved from "tint the
+   whole box" to two deliberate, sharp devices — a bold flat rule at the
+   top edge, and a single small color block offset near it (never
+   centered, same placement rule as the orbital mark's own affinity
+   point) — plus the photographs themselves carrying the mood via
+   duotone, not the container around them. ---- */
 .nook {
-  padding: 1.5rem;
+  padding: 1.75rem;
   margin-top: 2.75rem;
-  border-radius: 2px;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  position: relative;
 }
 .nook h2 {
   margin-bottom: 0.25rem;
@@ -344,19 +366,35 @@ section {
   font-style: italic;
 }
 .nook-default {
-  border: 1px solid var(--rule);
+  border-top: 1px solid var(--rule);
 }
 .nook-warm {
-  background: color-mix(in srgb, var(--signal) 8%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--signal) 30%, var(--rule));
+  border-top: 4px solid var(--duo-warm-hi);
 }
 .nook-cool {
-  background: color-mix(in srgb, #6f8fb0 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, #6f8fb0 25%, var(--rule));
+  border-top: 4px solid var(--duo-cool-hi);
 }
 .nook-midnight {
-  background: color-mix(in srgb, black 35%, var(--surface));
-  border: 1px solid var(--rule);
+  border-top: 4px solid var(--duo-mid-hi);
+}
+.nook-warm::after,
+.nook-cool::after,
+.nook-midnight::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 22%;
+  width: 16px;
+  height: 16px;
+}
+.nook-warm::after {
+  background: var(--duo-warm-hi);
+}
+.nook-cool::after {
+  background: var(--duo-cool-hi);
+}
+.nook-midnight::after {
+  background: var(--duo-mid-hi);
 }
 section h2 {
   font-family: var(--font-body);
@@ -424,6 +462,7 @@ ul.plain li.empty,
   display: block;
   border-bottom: none;
   position: relative;
+  --frame-accent: var(--signal);
 }
 .shelf-grid-item img,
 .shelf-grid-item span.mono {
@@ -433,7 +472,36 @@ ul.plain li.empty,
 .shelf-grid-item img {
   height: auto;
   border: 1px solid var(--rule);
-  transition: border-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    filter 0.2s ease;
+}
+
+/* ---- the same corner-crosshair instrument framing as the work page's own
+   hero poster (.poster-wrap), scaled down — every poster on the shelf is
+   an observed object, not a card, whether it's alone on a work page or
+   one of many in a grid. ---- */
+.shelf-grid-item::before,
+.shelf-grid-item::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--frame-accent);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.shelf-grid-item::before {
+  top: 4px;
+  left: 4px;
+  border-right: none;
+  border-bottom: none;
+}
+.shelf-grid-item::after {
+  bottom: 4px;
+  right: 4px;
+  border-left: none;
+  border-top: none;
 }
 
 /* ---- drag-and-drop organizing: native HTML5 DnD, no library. A poster
@@ -469,20 +537,41 @@ ul.plain li.empty,
   border-color: var(--signal);
 }
 
-/* ---- a nook's own theme extends to the frame around each poster inside
-   it, not just the section's background — the curated choice reaches the
-   works themselves. ---- */
+/* ---- a nook's own theme reaches every poster inside it two ways: the
+   crosshair corners pick up the theme's own color instead of the default
+   amber signal, and the photograph itself is duotoned (see
+   ensureDuotoneDefs() in common.js) — the mechanism Blue Note sleeves used
+   to make a movie still, an album cover, and a book jacket read as one
+   coherent mood. Hovering lifts the duotone so a closer look still shows
+   the work's real colors — "an instrument you look INTO," per this file's
+   own opening note, not a flat color treatment with no depth to find. ---- */
+.nook-warm .shelf-grid-item {
+  --frame-accent: var(--duo-warm-hi);
+}
+.nook-cool .shelf-grid-item {
+  --frame-accent: var(--duo-cool-hi);
+}
+.nook-midnight .shelf-grid-item {
+  --frame-accent: var(--duo-mid-hi);
+}
 .nook-warm .shelf-grid-item img {
-  border-color: color-mix(in srgb, var(--signal) 50%, var(--rule));
-  border-width: 2px;
+  filter: url(#duotone-warm);
 }
 .nook-cool .shelf-grid-item img {
-  border-color: color-mix(in srgb, #6f8fb0 45%, var(--rule));
-  border-width: 2px;
+  filter: url(#duotone-cool);
 }
 .nook-midnight .shelf-grid-item img {
-  border-color: var(--rule);
-  box-shadow: 0 0 0 3px color-mix(in srgb, black 40%, var(--surface));
+  filter: url(#duotone-midnight);
+}
+.nook-warm .shelf-grid-item:hover img,
+.nook-cool .shelf-grid-item:hover img,
+.nook-midnight .shelf-grid-item:hover img {
+  filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shelf-grid-item img {
+    transition: none;
+  }
 }
 
 /* ---- nook management controls (/shelf only) ---- */

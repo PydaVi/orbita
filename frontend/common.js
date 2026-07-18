@@ -229,6 +229,54 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
   return row;
 }
 
+// Blue Note album-cover duotone: two flat ink colors mapped across each
+// photo's own luminance (feColorMatrix desaturates to grayscale,
+// feComponentTransfer remaps black to the theme's shadow tone and white to
+// its highlight tone) — the same trick that let Reid Miles's sleeve design
+// unify whatever mismatched source photo he'd been handed under one
+// coherent mood. Injected once per page load (idempotent, checked by id).
+// The three highlight tones must match --duo-warm-hi/--duo-cool-hi/
+// --duo-mid-hi in styles.css by hand — SVG filter tables take normalized
+// numbers, not CSS custom properties, so there's no way to share one
+// source of truth here.
+function ensureDuotoneDefs() {
+  if (document.getElementById("duotone-defs")) return;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("id", "duotone-defs");
+  svg.setAttribute("width", "0");
+  svg.setAttribute("height", "0");
+  svg.style.position = "absolute";
+  const grayscale =
+    '<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>';
+  svg.innerHTML = `
+    <filter id="duotone-warm" color-interpolation-filters="sRGB">
+      ${grayscale}
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0.125 0.886"></feFuncR>
+        <feFuncG type="table" tableValues="0.063 0.643"></feFuncG>
+        <feFuncB type="table" tableValues="0.039 0.361"></feFuncB>
+      </feComponentTransfer>
+    </filter>
+    <filter id="duotone-cool" color-interpolation-filters="sRGB">
+      ${grayscale}
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0.039 0.561"></feFuncR>
+        <feFuncG type="table" tableValues="0.078 0.706"></feFuncG>
+        <feFuncB type="table" tableValues="0.122 0.820"></feFuncB>
+      </feComponentTransfer>
+    </filter>
+    <filter id="duotone-midnight" color-interpolation-filters="sRGB">
+      ${grayscale}
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0 0.290"></feFuncR>
+        <feFuncG type="table" tableValues="0 0.333"></feFuncG>
+        <feFuncB type="table" tableValues="0 0.471"></feFuncB>
+      </feComponentTransfer>
+    </filter>
+  `;
+  document.body.appendChild(svg);
+}
+
 // Every page calls this first, with which nav item (if any) is current.
 // Builds the persistent topbar (mark + wordmark only) and the 3-column
 // layout — sidebar (text nav) / center / right column — into #shell-mount,
@@ -237,6 +285,8 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
 // elsewhere gets moved, not duplicated, so #app keeps whatever the page's
 // own script has already put into it.
 function renderShell(active) {
+  ensureDuotoneDefs();
+
   const mount = document.getElementById("shell-mount");
   const app = document.getElementById("app");
   if (!mount || !app) return app;
