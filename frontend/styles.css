@@ -320,6 +320,38 @@ section {
   padding-top: 1.25rem;
   border-top: 1px solid var(--rule);
 }
+
+/* ---- nooks: a small, curated set of presentation choices (see the
+   Lexicon's own style def) — never a free color picker. Enough to feel
+   like the person's own corner without any profile clashing with the
+   product's own palette or breaking dark/light contrast. ---- */
+.nook {
+  padding: 1.5rem;
+  margin-top: 2.75rem;
+  border-radius: 2px;
+}
+.nook h2 {
+  margin-bottom: 0.25rem;
+}
+.nook-description {
+  margin: 0 0 1rem;
+  font-style: italic;
+}
+.nook-default {
+  border: 1px solid var(--rule);
+}
+.nook-warm {
+  background: color-mix(in srgb, var(--signal) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--signal) 30%, var(--rule));
+}
+.nook-cool {
+  background: color-mix(in srgb, #6f8fb0 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, #6f8fb0 25%, var(--rule));
+}
+.nook-midnight {
+  background: color-mix(in srgb, black 35%, var(--surface));
+  border: 1px solid var(--rule);
+}
 section h2 {
   font-family: var(--font-body);
   font-weight: 600;
@@ -584,16 +616,41 @@ details.episode {
   margin-top: 0;
 }
 
-textarea {
-  width: 100%;
-  min-height: 4rem;
+textarea,
+input[type="text"],
+select {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--rule);
   border-radius: 2px;
-  padding: 0.6rem 0.7rem;
+  padding: 0.5rem 0.6rem;
   font-family: var(--font-body);
+  font-size: 0.95rem;
+}
+textarea,
+input[type="text"] {
+  width: 100%;
+}
+textarea {
+  min-height: 4rem;
   resize: vertical;
+}
+
+/* ---- nook management (on /shelf): a plain list of checkboxes to pick
+   which of your own works go in, no drag/drop, no picker widget. ---- */
+.new-nook {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+.nook-pick {
+  display: block;
+  font-size: 0.9rem;
+  padding: 0.15rem 0;
+}
+.nook-pick input {
+  margin-right: 0.5rem;
 }
 textarea:focus,
 button:focus-visible {

@@ -5,10 +5,11 @@ with real scope, open questions, and a status once we actually start it — same
 process as Beta 0/1/2. This file exists so the order and the "why this, why
 now" of the whole arc is visible in one place, before any of it is detailed.
 
-Beta 0 through 6 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
+Beta 0 through 7 are done — see [`BETA0-PLAN.md`](BETA0-PLAN.md),
 [`BETA1-PLAN.md`](BETA1-PLAN.md), [`BETA2-PLAN.md`](BETA2-PLAN.md),
 [`BETA3-PLAN.md`](BETA3-PLAN.md), [`BETA4-PLAN.md`](BETA4-PLAN.md),
-[`BETA5-PLAN.md`](BETA5-PLAN.md), [`BETA6-PLAN.md`](BETA6-PLAN.md). Real UI
+[`BETA5-PLAN.md`](BETA5-PLAN.md), [`BETA6-PLAN.md`](BETA6-PLAN.md),
+[`BETA7-PLAN.md`](BETA7-PLAN.md). Real UI
 (Beta 3) landed ahead of everything else on this list — not last, as
 originally sketched — precisely because a profile is hard to reason about
 without a screen to look at, and Beta 4 gave every page from here on a
@@ -55,55 +56,27 @@ true cross-network discovery arriving whenever fan-out does.
 
 </details>
 
-## Beta 7 — the shelf as a creative space
+## Beta 7 — nooks: the shelf as a creative space ✅
 
-**Problem:** the shelf today is just a flat, chronological list of items —
-no room for a person's own curatorial voice in how it's organized or
-presented. Flagged by the author as potentially **the apex of the whole
-product** (2026-07-17): the shelf is the one surface that's entirely about
-the person's own taste and judgment, and right now it doesn't reflect that
-at all. This is explicitly under-scoped on purpose. It needs its own
-dedicated planning conversation before it becomes a real `BETA{N}-PLAN.md`,
-not just a scope item squeezed in here.
+The shelf used to be a flat, chronological list — no room for a person's
+own curatorial voice. Flagged early as potentially **the apex of the whole
+product**, and given its own real planning conversation across several
+rounds before any code, since it was deliberately left under-scoped in the
+original sketch. What shipped: **nooks** (`social.orbita.shelf.nook`) — a
+person's own, freely-ordered, cross-media groupings of works already on
+their shelf, each with an optional description and one of a few curated
+presentation themes (never a free color picker). A nook is now the
+*primary* way a shelf is organized and shown to visitors, not a side
+layer — the profile groups by nook, with an honest "unsorted" catch-all
+for anything not yet placed.
 
-**Ideas floated, refined over two conversations (2026-07-17):**
-- Custom labels the person defines themselves — not fixed system
-  categories — that group works into something closer to a playlist than a
-  folder: "cold days" could hold a blues album, a drama series, a horror
-  movie, and a novel all together. The label's name is itself the
-  explanation for why these things sit together, in the same spirit as
-  principle 2 ("the user always knows why they're seeing what they're
-  seeing") — except here the person writes that explanation themselves,
-  instead of the system inferring or ranking anything. Ordering within a
-  label is entirely free-form, chosen by the person, not derived from any
-  criteria the system understands.
-- These label-playlists are explicitly **a layer over the shelf, not a
-  parallel structure** (confirmed 2026-07-17): only works already on the
-  person's own shelf can go into one. This keeps "adding to your shelf" as
-  the one real commitment/gesture (see the product's own success metrics —
-  shelf additions are a real cultural gesture, playlists are recombination
-  of that, not a way around it).
-- Shareable: a label-playlist is a much richer thing to share than a
-  single note — closer to a small manifesto of taste than a list. Crossing
-  media types in one playlist (album + series + film + book together) may
-  be the one thing here no single-medium competitor (Letterboxd, Goodreads,
-  Discogs) can do, since it only works because this catalog already treats
-  every type as one thing.
-- A size limit, if it exists at all, applies only to the base shelf — the
-  scarce, curated set of what's really "yours" — never to playlists built
-  from it, which stay free to recombine without limit. Resolves the earlier
-  worry that a limit might fight against the creative, expressive side of
-  this idea: scarcity where it should force real curatorial choices,
-  freedom where the point is combination and re-combination.
-
-**Explicitly not decided:** whether a label-playlist becomes its own
-Lexicon record (an ordered list of work references, its own name/title, its
-own AT-URI to share) or something simpler layered onto `shelf.item` itself;
-whether a shelf size limit survives contact with real use; how (or whether)
-any of this interacts with the constellation visualization from earlier
-product work (see Beta 8, next). This entry exists so the ambition and the
-shape it's taking don't get lost before the rest of the roadmap moves on,
-not to pre-commit to an implementation.
+Named "nook," not "playlist" — rejected for presuming music and sequence
+when the goal was to stay as open as possible; the author's own reference
+point was how personal an old Tumblr theme used to feel. See
+[`BETA7-PLAN.md`](BETA7-PLAN.md) for the full account, including the
+"whole-record-replacement" editing model this introduced (the first
+record in this project that gets edited after creation, which meant the
+webhook had to start handling `update` events, not just `create`).
 
 ## Beta 8 — constellation and archetype on the profile
 

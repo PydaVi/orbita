@@ -36,6 +36,38 @@ async function init() {
   renderProfilePage(app, profile);
 }
 
+// renderWorkGrid is shared between a nook and the unsorted catch-all —
+// same visual object either way, a poster grid.
+function renderWorkGrid(items) {
+  if (!items || items.length === 0) {
+    return el("p", { class: "empty", text: "nothing here yet" });
+  }
+  const grid = el("div", { class: "shelf-grid" });
+  for (const item of items) {
+    const cell = el("a", { href: `/works/${item.provider}/${item.id}`, class: "shelf-grid-item" });
+    if (item.poster) {
+      cell.appendChild(el("img", { src: item.poster, alt: item.title }));
+    } else {
+      cell.appendChild(el("span", { class: "mono", text: item.title }));
+    }
+    grid.appendChild(cell);
+  }
+  return grid;
+}
+
+// A nook's theme is one of a small curated set (see the Lexicon's own
+// style def) — never a free color, so every profile stays visually
+// coherent with the rest of the product while still feeling distinct.
+function renderNookSection(nook) {
+  const header = [el("h2", { text: nook.name })];
+  if (nook.description) {
+    header.push(el("p", { class: "mono nook-description", text: nook.description }));
+  }
+  const section = el("section", { class: `nook nook-${nook.theme || "default"}` }, header);
+  section.appendChild(renderWorkGrid(nook.works));
+  return section;
+}
+
 function renderProfilePage(app, profile) {
   const hero = el("div", { class: "hero" });
   const avatar = avatarEl(profile.handle, profile.avatarUrl);
@@ -52,23 +84,17 @@ function renderProfilePage(app, profile) {
   hero.appendChild(heroBody);
   app.appendChild(hero);
 
-  const shelfSection = el("section", {}, [el("h2", { text: `Shelf (${profile.shelf.length})` })]);
-  if (profile.shelf.length === 0) {
-    shelfSection.appendChild(el("p", { class: "empty", text: "nothing here yet" }));
-  } else {
-    const grid = el("div", { class: "shelf-grid" });
-    for (const item of profile.shelf) {
-      const cell = el("a", { href: `/works/${item.provider}/${item.id}`, class: "shelf-grid-item" });
-      if (item.poster) {
-        cell.appendChild(el("img", { src: item.poster, alt: item.title }));
-      } else {
-        cell.appendChild(el("span", { class: "mono", text: item.title }));
-      }
-      grid.appendChild(cell);
-    }
-    shelfSection.appendChild(grid);
+  // Beta 7: the shelf is organized by nook, not one flat grid — a nook is
+  // the primary way this person chose to present their own shelf, not a
+  // side list. Unsorted works (not yet placed in any nook) get their own
+  // honest section at the end, never folded silently into a default.
+  for (const nook of profile.nooks || []) {
+    app.appendChild(renderNookSection(nook));
   }
-  app.appendChild(shelfSection);
+
+  const unsortedSection = el("section", {}, [el("h2", { text: `Unsorted (${(profile.unsorted || []).length})` })]);
+  unsortedSection.appendChild(renderWorkGrid(profile.unsorted));
+  app.appendChild(unsortedSection);
 
   const notesSection = el("section", {}, [el("h2", { text: `Notes (${profile.notes.length})` })]);
   const list = el("ul", { class: "plain" });

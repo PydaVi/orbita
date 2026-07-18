@@ -87,12 +87,25 @@ func feedSortKey(e feedNoteEntry) string {
 	return e.CreatedAt
 }
 
+// Beta 7: nooks are the primary way a shelf is organized and shown to
+// visitors — the profile groups by nook, not a single flat grid anymore.
+// Unsorted is the honest catch-all: works on the shelf that aren't in any
+// nook yet, never hidden or forced into a default grouping.
+type nookEntry struct {
+	URI         string              `json:"uri"`
+	Name        string              `json:"name"`
+	Description string              `json:"description,omitempty"`
+	Theme       string              `json:"theme"`
+	Works       []profileShelfEntry `json:"works"`
+}
+
 type profileResponse struct {
 	DID       string              `json:"did"`
 	Handle    string              `json:"handle"`
 	AvatarURL string              `json:"avatarUrl,omitempty"`
 	Bio       string              `json:"bio,omitempty"`
-	Shelf     []profileShelfEntry `json:"shelf"`
+	Nooks     []nookEntry         `json:"nooks"`
+	Unsorted  []profileShelfEntry `json:"unsorted"`
 	Notes     []profileNoteEntry  `json:"notes"`
 }
 
@@ -304,6 +317,204 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 
+	// Beta 7: nooks. A nook's "edit" (rename, reorder, add/remove a work)
+	// is a whole-record replacement (com.atproto.repo.putRecord) — there's
+	// no separate membership record type, so editing just means resending
+	// the full desired works array. shelfItemExists is the guard the
+	// Lexicon itself can't express: only works already on the author's
+	// own shelf may go into a nook.
+	type nookRequestBody struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Theme       string `json:"theme"`
+		Works       []struct {
+			Provider string `json:"provider"`
+			ID       string `json:"id"`
+		} `json:"works"`
+	}
+
+	buildNookRecord := func(did, createdAt string, body nookRequestBody) (map[string]any, []WorkRef, error) {
+		theme := body.Theme
+		if theme == "" {
+			theme = "default"
+		}
+		works := make([]WorkRef, 0, len(body.Works))
+		workRefs := make([]map[string]any, 0, len(body.Works))
+		for _, w := range body.Works {
+			if !shelfItemExists(db, did, w.Provider, w.ID) {
+				return nil, nil, fmt.Errorf("%s/%s is not on your shelf", w.Provider, w.ID)
+			}
+			works = append(works, WorkRef{Provider: w.Provider, WorkID: w.ID})
+			workRefs = append(workRefs, map[string]any{"provider": w.Provider, "id": w.ID})
+		}
+		record := map[string]any{
+			"$type":       "social.orbita.shelf.nook",
+			"name":        body.Name,
+			"description": body.Description,
+			"works":       workRefs,
+			"style":       map[string]any{"theme": theme},
+			"createdAt":   createdAt,
+		}
+		return record, works, nil
+	}
+
+	toNookEntry := func(uri, name, description, theme string, works []WorkRef) nookEntry {
+		workEntries := make([]profileShelfEntry, 0, len(works))
+		for _, w := range works {
+			title, poster, _ := displayWork(db, w.Provider, w.WorkID)
+			workEntries = append(workEntries, profileShelfEntry{Provider: w.Provider, ID: w.WorkID, Title: title, Poster: poster})
+		}
+		return nookEntry{URI: uri, Name: name, Description: description, Theme: theme, Works: workEntries}
+	}
+
+	mux.HandleFunc("POST /api/nooks", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		did, sessionID := currentSessionDID(r)
+		if did == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+		oauthSess, err := oauthClient.ResumeSession(ctx, *did, sessionID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid session, please sign in again: %v", err), http.StatusUnauthorized)
+			return
+		}
+
+		var body nookRequestBody
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		createdAt := syntax.DatetimeNow().String()
+		record, works, err := buildNookRecord(did.String(), createdAt, body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		c := oauthSess.APIClient()
+		apiBody := map[string]any{
+			"repo":       c.AccountDID.String(),
+			"collection": "social.orbita.shelf.nook",
+			"record":     record,
+		}
+		log.Printf("writing nook via OAuth (DPoP), JSON API: name=%q, %d work(s)", body.Name, len(works))
+		var created struct {
+			URI string `json:"uri"`
+		}
+		if err := c.Post(ctx, "com.atproto.repo.createRecord", apiBody, &created); err != nil {
+			http.Error(w, fmt.Sprintf("failed to write nook: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(toNookEntry(created.URI, body.Name, body.Description, record["style"].(map[string]any)["theme"].(string), works))
+	})
+
+	mux.HandleFunc("PUT /api/nooks/{rkey}", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		did, sessionID := currentSessionDID(r)
+		if did == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+		oauthSess, err := oauthClient.ResumeSession(ctx, *did, sessionID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid session, please sign in again: %v", err), http.StatusUnauthorized)
+			return
+		}
+
+		rkey := r.PathValue("rkey")
+		uri := fmt.Sprintf("at://%s/social.orbita.shelf.nook/%s", did.String(), rkey)
+
+		var body nookRequestBody
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// The original createdAt is preserved across edits — this is when
+		// the nook was made, not when it was last touched. Falls back to
+		// now only if the local index hasn't caught up with this nook yet.
+		createdAt := syntax.DatetimeNow().String()
+		if existing, existErr := listNooksByAccount(db, did.String()); existErr == nil {
+			for _, n := range existing {
+				if n.URI == uri {
+					createdAt = n.CreatedAt
+					break
+				}
+			}
+		}
+
+		record, works, err := buildNookRecord(did.String(), createdAt, body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		c := oauthSess.APIClient()
+		apiBody := map[string]any{
+			"repo":       c.AccountDID.String(),
+			"collection": "social.orbita.shelf.nook",
+			"rkey":       rkey,
+			"record":     record,
+		}
+		log.Printf("updating nook via OAuth (DPoP), JSON API: uri=%s", uri)
+		if err := c.Post(ctx, "com.atproto.repo.putRecord", apiBody, nil); err != nil {
+			http.Error(w, fmt.Sprintf("failed to update nook: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(toNookEntry(uri, body.Name, body.Description, record["style"].(map[string]any)["theme"].(string), works))
+	})
+
+	mux.HandleFunc("POST /api/nooks/delete", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		did, sessionID := currentSessionDID(r)
+		if did == nil {
+			http.Error(w, "not authenticated", http.StatusUnauthorized)
+			return
+		}
+		oauthSess, err := oauthClient.ResumeSession(ctx, *did, sessionID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid session, please sign in again: %v", err), http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			URI string `json:"uri"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		atURI, err := syntax.ParseATURI(body.URI)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid AT-URI: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		c := oauthSess.APIClient()
+		apiBody := map[string]any{
+			"repo":       c.AccountDID.String(),
+			"collection": atURI.Collection().String(),
+			"rkey":       atURI.RecordKey().String(),
+		}
+		log.Printf("deleting nook %s via OAuth (DPoP), JSON API", body.URI)
+		if err := c.Post(ctx, "com.atproto.repo.deleteRecord", apiBody, nil); err != nil {
+			http.Error(w, fmt.Sprintf("failed to delete nook: %v", err), http.StatusBadRequest)
+			return
+		}
+		if err := deleteNook(db, body.URI); err != nil {
+			log.Printf("deleted from PDS but failed to remove local index for %s: %v", body.URI, err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	})
+
 	// Beta 0's "prove Tap indexed it" listing showed everyone's shelf
 	// activity — reconsidered mid-Beta-4 (2026-07-17): unscoped, that page
 	// serves none of the product's four core surfaces, it's not "your
@@ -350,15 +561,30 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 
 		handle, avatar, bio, _ := resolveIdentityFull(r.Context(), db, did)
 
-		shelfItems, err := listShelfItemsByAccount(db, did)
+		rawNooks, err := listNooksByAccount(db, did)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		shelf := make([]profileShelfEntry, 0, len(shelfItems))
-		for _, it := range shelfItems {
+		nooks := make([]nookEntry, 0, len(rawNooks))
+		for _, n := range rawNooks {
+			works := make([]profileShelfEntry, 0, len(n.Works))
+			for _, w := range n.Works {
+				title, poster, _ := displayWork(db, w.Provider, w.WorkID)
+				works = append(works, profileShelfEntry{Provider: w.Provider, ID: w.WorkID, Title: title, Poster: poster})
+			}
+			nooks = append(nooks, nookEntry{URI: n.URI, Name: n.Name, Description: n.Description, Theme: n.Theme, Works: works})
+		}
+
+		unsortedItems, err := listUnsortedShelfItems(db, did)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		unsorted := make([]profileShelfEntry, 0, len(unsortedItems))
+		for _, it := range unsortedItems {
 			title, poster, _ := displayWork(db, it.Provider, it.WorkID)
-			shelf = append(shelf, profileShelfEntry{Provider: it.Provider, ID: it.WorkID, Title: title, Poster: poster})
+			unsorted = append(unsorted, profileShelfEntry{Provider: it.Provider, ID: it.WorkID, Title: title, Poster: poster})
 		}
 
 		accountNotes, err := listNotesByAccount(db, did)
@@ -377,7 +603,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(profileResponse{
-			DID: did, Handle: handle, AvatarURL: avatar, Bio: bio, Shelf: shelf, Notes: notes,
+			DID: did, Handle: handle, AvatarURL: avatar, Bio: bio, Nooks: nooks, Unsorted: unsorted, Notes: notes,
 		})
 	})
 

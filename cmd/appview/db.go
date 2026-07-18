@@ -85,6 +85,12 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(repostsSchema); err != nil {
 		return nil, fmt.Errorf("creating reposts schema: %w", err)
 	}
+	if _, err := db.Exec(nooksSchema); err != nil {
+		return nil, fmt.Errorf("creating nooks schema: %w", err)
+	}
+	if _, err := db.Exec(nookItemsSchema); err != nil {
+		return nil, fmt.Errorf("creating nook_items schema: %w", err)
+	}
 	if _, err := db.Exec(identityCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating identity_cache schema: %w", err)
 	}

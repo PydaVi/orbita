@@ -1,0 +1,53 @@
+{
+  "lexicon": 1,
+  "id": "social.orbita.shelf.nook",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A personal, freely-ordered grouping of works already on one's own shelf — the primary way a shelf is organized and presented to visitors, not a side list. No implied sequence, mood, or algorithm beyond what the person themselves chose. Only works already on the author's shelf.item collection may appear here — enforced by the appview at write time, not by this schema.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["name", "works", "createdAt"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "works": {
+            "type": "array",
+            "maxLength": 200,
+            "items": {
+              "type": "ref",
+              "ref": "social.orbita.shelf.item#work"
+            },
+            "description": "Order is the array order — entirely the author's own choice, not derived from any criteria the system understands."
+          },
+          "style": {
+            "type": "ref",
+            "ref": "#style"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "description": "A small, curated set of presentation choices — not a free color picker. Keeps every profile visually coherent with the product's own design system while still letting each nook feel distinct.",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "knownValues": ["default", "warm", "cool", "midnight"]
+        }
+      }
+    }
+  }
+}

@@ -9,6 +9,14 @@ import (
 	"net/http"
 )
 
+// workRef decodes a {provider, id} pair as it appears inside a nook's
+// works array — same shape as shelf.item's own work field, just named
+// "id" in the wire JSON rather than "workID".
+type workRef struct {
+	Provider string `json:"provider"`
+	ID       string `json:"id"`
+}
+
 // Real shape observed in Tap events (see docs/architecture-beta0-local.md) —
 // two types exist, "identity" and "record"; only the second one matters here.
 type tapEvent struct {
@@ -45,6 +53,12 @@ type tapRecordData struct {
 			URI string `json:"uri"`
 			CID string `json:"cid"`
 		} `json:"subject"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		Works       []workRef `json:"works"`
+		Style       *struct {
+			Theme string `json:"theme"`
+		} `json:"style"`
 	} `json:"record"`
 }
 
@@ -69,7 +83,14 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
-		if evt.Type == "record" && evt.Record != nil && evt.Record.Action == "create" {
+		// Beta 7: a nook's "edit" is a putRecord (action "update"), not a
+		// new record — the same collections that only ever handled
+		// "create" before now also need to handle nooks being replaced in
+		// place. Other collections still only ever arrive as "create" in
+		// practice (no edit path exists for them yet), so this is scoped
+		// to what actually needs it rather than assuming "update" is
+		// meaningful for every collection.
+		if evt.Type == "record" && evt.Record != nil && (evt.Record.Action == "create" || evt.Record.Action == "update") {
 			rec := evt.Record
 			uri := fmt.Sprintf("at://%s/%s/%s", rec.DID, rec.Collection, rec.Rkey)
 
@@ -97,6 +118,21 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 				}
 			case "social.orbita.repost":
 				err := insertRepost(db, uri, rec.CID, rec.DID, rec.Record.Subject.URI, rec.Record.Subject.CID, rec.Record.CreatedAt)
+				if err != nil {
+					log.Printf("failed to index %s: %v", uri, err)
+				} else {
+					log.Printf("indexed: %s", uri)
+				}
+			case "social.orbita.shelf.nook":
+				theme := "default"
+				if rec.Record.Style != nil && rec.Record.Style.Theme != "" {
+					theme = rec.Record.Style.Theme
+				}
+				works := make([]WorkRef, 0, len(rec.Record.Works))
+				for _, w := range rec.Record.Works {
+					works = append(works, WorkRef{Provider: w.Provider, WorkID: w.ID})
+				}
+				err := insertNook(db, uri, rec.CID, rec.DID, rec.Record.Name, rec.Record.Description, theme, rec.Record.CreatedAt, works)
 				if err != nil {
 					log.Printf("failed to index %s: %v", uri, err)
 				} else {
