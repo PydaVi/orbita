@@ -26,6 +26,7 @@ Flagged early (2026-07-17) as potentially **the apex of the whole product**: the
 - **A dedicated Lexicon record, decided before writing it** — a label field on `shelf.item` was considered and rejected: it can't give free ordering or a single shareable object, both explicitly wanted.
 - **`nook_items` is fully rebuilt on every (re)index**, matching `putRecord`'s "whole record replaced" semantics, rather than tracked as incremental diffs.
 - **Webhook now handles `"update"` actions — scoped to this need, not applied broadly.** Every other collection here still only ever arrives as `"create"` in practice (no edit path exists for them), so this isn't a blanket policy change, just closing the specific gap nooks introduced.
+- **Same class of bug as Beta 1's "Titanic" incident, caught again.** The OAuth scope list in `oauth.go` never gained entries for `social.orbita.repost` or `social.orbita.shelf.nook` when those collections were added — nook creation failed against the real PDS with the same `ScopeMissingError` shape as the original delete-scope bug. Fixed by adding both, with nook explicitly requesting `create`, `update`, *and* `delete` — the first collection in this project needing all three from day one. Existing sessions can't be retroactively upgraded; signing out and back in is required to pick up the new scope, same as the original incident.
 
 ## Explicitly not in this beta
 

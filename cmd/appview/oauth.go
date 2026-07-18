@@ -20,22 +20,26 @@ var (
 // PKCE + DPoP internally — we don't write any of that by hand, just call
 // the lib.
 func setupOAuth(mux *http.ServeMux, sessionSecret string) {
-	// Minimal scope: only create + delete on our own collection, no
-	// access to the whole account, no "update" either since we don't
-	// have that feature yet. REPO_ACTIONS is create/update/delete
-	// (confirmed against @atproto/oauth-scopes' source); multiple
-	// actions on the same collection repeat the "action" param, not a
-	// comma list. Found this the hard way: a real delete attempt failed
-	// with "ScopeMissingError: Missing required scope
-	// repo:social.orbita.shelf.item?action=delete" against the actual
-	// Bluesky server, because Beta 0 only ever requested "create".
-	// Beta 2: a separate repo scope entry for the second collection —
-	// each collection gets its own "repo:" scope, they don't combine
-	// into one string.
+	// REPO_ACTIONS is create/update/delete (confirmed against
+	// @atproto/oauth-scopes' source); multiple actions on the same
+	// collection repeat the "action" param, not a comma list. Found this
+	// the hard way: a real delete attempt failed with "ScopeMissingError:
+	// Missing required scope repo:social.orbita.shelf.item?action=delete"
+	// against the actual Bluesky server, because Beta 0 only ever
+	// requested "create". Each collection gets its own "repo:" scope
+	// entry, they don't combine into one string — caught the same class
+	// of bug again in Beta 7 (nook creation failing with the same
+	// ScopeMissingError shape) after adding two new collections without
+	// updating this list: repost only ever needs "create", but nook needs
+	// "update" too, since editing a nook is a whole-record replacement
+	// (com.atproto.repo.putRecord), the first write path in this project
+	// that isn't just create/delete.
 	scopes := []string{
 		"atproto",
 		"repo:social.orbita.shelf.item?action=create&action=delete",
 		"repo:social.orbita.note?action=create",
+		"repo:social.orbita.repost?action=create",
+		"repo:social.orbita.shelf.nook?action=create&action=update&action=delete",
 	}
 
 	// NewLocalhostConfig uses the spec's local-development exception —
