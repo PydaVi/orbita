@@ -39,6 +39,7 @@ type profileResponse struct {
 	DID       string              `json:"did"`
 	Handle    string              `json:"handle"`
 	AvatarURL string              `json:"avatarUrl,omitempty"`
+	Bio       string              `json:"bio,omitempty"`
 	Shelf     []profileShelfEntry `json:"shelf"`
 	Notes     []profileNoteEntry  `json:"notes"`
 }
@@ -276,7 +277,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
-		handle, avatar := resolveIdentity(r.Context(), db, did)
+		handle, avatar, bio, _ := resolveIdentityFull(r.Context(), db, did)
 
 		shelfItems, err := listShelfItemsByAccount(db, did)
 		if err != nil {
@@ -305,7 +306,7 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(profileResponse{
-			DID: did, Handle: handle, AvatarURL: avatar, Shelf: shelf, Notes: notes,
+			DID: did, Handle: handle, AvatarURL: avatar, Bio: bio, Shelf: shelf, Notes: notes,
 		})
 	})
 

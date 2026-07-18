@@ -41,13 +41,15 @@ function renderProfilePage(app, profile) {
   const avatar = avatarEl(profile.handle, profile.avatarUrl);
   avatar.classList.add("avatar-lg");
   hero.appendChild(el("div", {}, [avatar]));
-  hero.appendChild(
-    el("div", {}, [
-      el("h1", { class: "work-title", text: `@${displayHandle(profile.handle)}` }),
-      el("hr", { class: "hero-rule" }),
-      el("p", { class: "mono", text: profile.did }),
-    ])
-  );
+  const heroBody = el("div", {}, [
+    el("h1", { class: "work-title", text: `@${displayHandle(profile.handle)}` }),
+    el("hr", { class: "hero-rule" }),
+  ]);
+  if (profile.bio) {
+    heroBody.appendChild(el("p", { class: "overview", text: profile.bio }));
+  }
+  heroBody.appendChild(el("p", { class: "mono", text: profile.did }));
+  hero.appendChild(heroBody);
   app.appendChild(hero);
 
   const shelfSection = el("section", {}, [el("h2", { text: `Shelf (${profile.shelf.length})` })]);

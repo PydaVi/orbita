@@ -34,61 +34,70 @@ CREATE TABLE IF NOT EXISTS identity_cache (
 	did        TEXT PRIMARY KEY,
 	handle     TEXT NOT NULL,
 	avatar_url TEXT NOT NULL,
+	bio        TEXT NOT NULL DEFAULT '',
 	cached_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 `
 
-func getCachedIdentity(db *sql.DB, did string) (handle, avatarURL string, ok bool) {
-	row := db.QueryRow(`SELECT handle, avatar_url FROM identity_cache WHERE did = ?`, did)
-	if err := row.Scan(&handle, &avatarURL); err != nil {
-		return "", "", false
+func getCachedIdentity(db *sql.DB, did string) (handle, avatarURL, bio string, ok bool) {
+	row := db.QueryRow(`SELECT handle, avatar_url, bio FROM identity_cache WHERE did = ?`, did)
+	if err := row.Scan(&handle, &avatarURL, &bio); err != nil {
+		return "", "", "", false
 	}
-	return handle, avatarURL, true
+	return handle, avatarURL, bio, true
 }
 
-func setCachedIdentity(db *sql.DB, did, handle, avatarURL string) error {
+func setCachedIdentity(db *sql.DB, did, handle, avatarURL, bio string) error {
 	_, err := db.Exec(
-		`INSERT INTO identity_cache (did, handle, avatar_url) VALUES (?, ?, ?)
-		 ON CONFLICT(did) DO UPDATE SET handle = excluded.handle, avatar_url = excluded.avatar_url`,
-		did, handle, avatarURL,
+		`INSERT INTO identity_cache (did, handle, avatar_url, bio) VALUES (?, ?, ?, ?)
+		 ON CONFLICT(did) DO UPDATE SET handle = excluded.handle, avatar_url = excluded.avatar_url, bio = excluded.bio`,
+		did, handle, avatarURL, bio,
 	)
 	return err
 }
 
 // resolveIdentity is cache-first and fail-open, same shape as displayWork:
 // on any failure it falls back to showing the raw DID as the "handle" and
-// no avatar, rather than breaking the page.
+// no avatar/bio, rather than breaking the page.
 func resolveIdentity(ctx context.Context, db *sql.DB, didStr string) (handle, avatarURL string) {
-	if h, a, ok := getCachedIdentity(db, didStr); ok {
-		return h, a
+	h, a, _, _ := resolveIdentityFull(ctx, db, didStr)
+	return h, a
+}
+
+// resolveIdentityFull is the same resolution, exposing the bio too — kept
+// separate from resolveIdentity so call sites that don't need a bio (shelf
+// rows, note bylines) don't have to thread an unused value through.
+func resolveIdentityFull(ctx context.Context, db *sql.DB, didStr string) (handle, avatarURL, bio string, ok bool) {
+	if h, a, b, cached := getCachedIdentity(db, didStr); cached {
+		return h, a, b, true
 	}
 
 	did, err := syntax.ParseDID(didStr)
 	if err != nil {
-		return didStr, ""
+		return didStr, "", "", false
 	}
 
 	ident, err := identityDirectory.LookupDID(ctx, did)
 	if err != nil {
-		return didStr, ""
+		return didStr, "", "", false
 	}
 	handle = ident.Handle.String()
 	if handle == "" || handle == "handle.invalid" {
 		handle = didStr
 	}
 
-	pds, ok := ident.Services["atproto_pds"]
-	if !ok {
-		setCachedIdentity(db, didStr, handle, "")
-		return handle, ""
+	pds, hasPDS := ident.Services["atproto_pds"]
+	if !hasPDS {
+		setCachedIdentity(db, didStr, handle, "", "")
+		return handle, "", "", true
 	}
 
-	avatarURL = fetchAvatarURL(pds.URL, didStr)
-	if err := setCachedIdentity(db, didStr, handle, avatarURL); err != nil {
+	avatarURL, bio = fetchBlueskyProfile(pds.URL, didStr)
+	if err := setCachedIdentity(db, didStr, handle, avatarURL, bio); err != nil {
 		// Not fatal — just means this DID gets re-resolved next time.
 		_ = err
 	}
-	return handle, avatarURL
+	return handle, avatarURL, bio, true
 }
 
 // resolveHandleToDID is the reverse lookup profile pages need: given a
@@ -109,21 +118,22 @@ func resolveHandleToDID(ctx context.Context, handleStr string) (string, error) {
 	return ident.DID.String(), nil
 }
 
-// fetchAvatarURL reads the account's own app.bsky.actor.profile record
-// straight from its own PDS and builds the getBlob URL for the avatar —
-// no Bluesky-specific API call. Returns "" on any failure (no profile
-// record, no avatar set, PDS unreachable): fail-open, same as everywhere
-// else in this codebase.
-func fetchAvatarURL(pdsURL, did string) string {
+// fetchBlueskyProfile reads the account's own app.bsky.actor.profile
+// record straight from its own PDS and returns the avatar (as a resolved
+// getBlob URL) and the bio text — no Bluesky-specific API call, just the
+// well-known record shape any AT Protocol account may have on its own
+// repo. Returns ("", "") on any failure (no profile record, PDS
+// unreachable): fail-open, same as everywhere else in this codebase.
+func fetchBlueskyProfile(pdsURL, did string) (avatarURL, bio string) {
 	u := fmt.Sprintf("%s/xrpc/com.atproto.repo.getRecord?repo=%s&collection=app.bsky.actor.profile&rkey=self",
 		pdsURL, url.QueryEscape(did))
 	resp, err := http.Get(u)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return ""
+		return "", ""
 	}
 
 	var body struct {
@@ -133,15 +143,18 @@ func fetchAvatarURL(pdsURL, did string) string {
 					Link string `json:"$link"`
 				} `json:"ref"`
 			} `json:"avatar"`
+			Description string `json:"description"`
 		} `json:"value"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return ""
+		return "", ""
 	}
+	bio = body.Value.Description
 	cid := body.Value.Avatar.Ref.Link
 	if cid == "" {
-		return ""
+		return "", bio
 	}
-	return fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s",
+	avatarURL = fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?did=%s&cid=%s",
 		pdsURL, url.QueryEscape(did), url.QueryEscape(cid))
+	return avatarURL, bio
 }
