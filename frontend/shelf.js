@@ -105,12 +105,22 @@ function workKey(w) {
 
 async function saveNook(nook) {
   try {
+    // First line of defense against a duplicate work landing in a nook's
+    // works array — the server (buildNookRecord/insertNook) also collapses
+    // duplicates, but there's no reason to even send one.
+    const seenKeys = new Set();
+    const dedupedWorks = nook.works.filter((w) => {
+      const k = workKey(w);
+      if (seenKeys.has(k)) return false;
+      seenKeys.add(k);
+      return true;
+    });
     const body = {
       name: nook.name,
       description: nook.description || "",
       theme: nook.theme,
       order: nook.order,
-      works: nook.works.map((w) => ({ provider: w.provider, id: w.id })),
+      works: dedupedWorks.map((w) => ({ provider: w.provider, id: w.id })),
     };
     const updated = await fetchJSON(`/api/nooks/${rkeyOf(nook.uri)}`, {
       method: "PUT",
@@ -316,7 +326,11 @@ async function commitDrag(state, rerender) {
 // in the unsorted grid.
 function renderPoster(work, { fromNookUri, onRemove }) {
   const key = workKey(work);
-  const cell = el("div", { class: "shelf-grid-item draggable-work", "data-work-key": key });
+  const cell = el("a", {
+    href: `/works/${work.provider}/${work.id}`,
+    class: "shelf-grid-item draggable-work",
+    "data-work-key": key,
+  });
   if (justLanded && justLanded.key === key && justLanded.nookUri === (fromNookUri || null)) {
     cell.classList.add("just-landed");
     justLanded = null;
@@ -330,6 +344,11 @@ function renderPoster(work, { fromNookUri, onRemove }) {
   }
   const removeBtn = el("button", { type: "button", class: "poster-remove", title: "Remove from shelf", text: "×" });
   removeBtn.addEventListener("click", (e) => {
+    // The cell is now a real <a href> (so a work is clickable straight to
+    // its page) — this button sits inside it, so a click needs
+    // preventDefault too, not just stopPropagation, or it navigates to the
+    // work page instead of removing it.
+    e.preventDefault();
     e.stopPropagation();
     onRemove(work);
   });
@@ -549,8 +568,16 @@ function renderNewNookTrigger(state, rerender) {
   const trigger = el("button", { type: "button", class: "action-btn-text", text: "+ New nook" });
   const input = el("input", { type: "text", placeholder: "name…", style: "display:none" });
 
+  // Enter and blur both call create() — and the DOM removal that
+  // rerender() does at the end of a successful create() fires a native
+  // blur on this very input (it's about to be detached), re-entering
+  // create() a second time before the first call's await ever resolves.
+  // Clearing the value synchronously, before the first await, is what
+  // actually prevents the duplicate: the re-entrant call reads an empty
+  // string and takes the early-return path instead of submitting again.
   const create = async () => {
     const name = input.value.trim();
+    input.value = "";
     if (!name) {
       input.style.display = "none";
       trigger.style.display = "inline-flex";
@@ -566,6 +593,7 @@ function renderNewNookTrigger(state, rerender) {
       rerender();
     } catch (err) {
       alert(`failed to create nook: ${err}`);
+      input.value = name;
     }
   };
 

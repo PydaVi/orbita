@@ -72,13 +72,24 @@ func insertNook(db *sql.DB, uri, cid, did, name, description, theme, createdAt s
 	if _, err := tx.Exec(`DELETE FROM nook_items WHERE nook_uri = ?`, uri); err != nil {
 		return err
 	}
-	for i, w := range works {
+	// Defensive, not just optimistic: this indexes whatever a record
+	// actually contains, from any source (the live webhook, a resync read
+	// straight from the PDS) — a duplicate entry within one nook's works
+	// array has nowhere else to be caught before it reaches here.
+	seen := make(map[WorkRef]bool, len(works))
+	position := 0
+	for _, w := range works {
+		if seen[w] {
+			continue
+		}
+		seen[w] = true
 		if _, err := tx.Exec(
 			`INSERT INTO nook_items (nook_uri, position, provider, work_id) VALUES (?, ?, ?, ?)`,
-			uri, i, w.Provider, w.WorkID,
+			uri, position, w.Provider, w.WorkID,
 		); err != nil {
 			return err
 		}
+		position++
 	}
 
 	return tx.Commit()

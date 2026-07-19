@@ -261,6 +261,21 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
+		// Idempotent by (did, provider, id) — a repeat "+ Add to shelf"
+		// for something already there returns the existing record instead
+		// of minting a second one. The protocol has no uniqueness
+		// constraint on record content, only on URI, so this check is the
+		// only thing that ever stood between here and a real duplicate.
+		if existing, err := getShelfItem(db, did.String(), body.Provider, body.ID); err == nil && existing != nil {
+			handle, avatar := resolveIdentity(ctx, db, did.String())
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(accountEntry{
+				URI: existing.URI, DID: did.String(), Handle: handle, AvatarURL: avatar,
+				AddedAt: existing.CreatedAt,
+			})
+			return
+		}
+
 		c := oauthSess.APIClient()
 		apiBody := map[string]any{
 			"repo":       c.AccountDID.String(),
@@ -362,11 +377,17 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		}
 		works := make([]WorkRef, 0, len(body.Works))
 		workRefs := make([]map[string]any, 0, len(body.Works))
+		seen := make(map[WorkRef]bool, len(body.Works))
 		for _, w := range body.Works {
 			if !shelfItemExists(db, did, w.Provider, w.ID) {
 				return nil, nil, fmt.Errorf("%s/%s is not on your shelf", w.Provider, w.ID)
 			}
-			works = append(works, WorkRef{Provider: w.Provider, WorkID: w.ID})
+			ref := WorkRef{Provider: w.Provider, WorkID: w.ID}
+			if seen[ref] {
+				continue // a work can only appear once per nook — silently collapsed, not an error
+			}
+			seen[ref] = true
+			works = append(works, ref)
 			workRefs = append(workRefs, map[string]any{"provider": w.Provider, "id": w.ID})
 		}
 		record := map[string]any{

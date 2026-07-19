@@ -155,6 +155,29 @@ func listShelfItemsByAccount(db *sql.DB, did string) ([]ShelfItem, error) {
 	return items, rows.Err()
 }
 
+// getShelfItem is the idempotency check POST /api/shelf/add needs: nothing
+// on the write path used to stop the same {provider, id} from being added
+// twice as two separate PDS records (there's no protocol-level uniqueness
+// constraint on record content, only on the URI, and every createRecord
+// call mints a fresh rkey) — a repeat "+ Add to shelf" click, from a
+// second visit or a UI that hadn't yet learned the work was already
+// there, silently produced a real duplicate.
+func getShelfItem(db *sql.DB, did, provider, workID string) (*ShelfItem, error) {
+	var it ShelfItem
+	row := db.QueryRow(
+		`SELECT uri, cid, did, provider, work_id, created_at, indexed_at
+		 FROM shelf_items WHERE did = ? AND provider = ? AND work_id = ? LIMIT 1`,
+		did, provider, workID,
+	)
+	if err := row.Scan(&it.URI, &it.CID, &it.DID, &it.Provider, &it.WorkID, &it.CreatedAt, &it.IndexedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &it, nil
+}
+
 func getCachedWork(db *sql.DB, provider, workID string) (title, posterURL, year, overview string, ok bool) {
 	row := db.QueryRow(`SELECT title, poster_url, year, overview FROM work_cache WHERE provider = ? AND work_id = ?`,
 		provider, workID)

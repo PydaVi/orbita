@@ -429,6 +429,72 @@ section {
 .nook-manifesto::after {
   background: var(--duo-manifesto-hi);
 }
+
+/* ---- profile page: nook cards, not a whole shelf. A card carries the
+   same .nook/.nook-{theme} classes as the full section elsewhere (so its
+   top rule, corner block, and duotone posters come free from the rules
+   above), plus its own layout for the compact preview + title + count,
+   and an anchor reset since the whole card is now the link to that
+   nook's own complete page. ---- */
+.nook-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+.nook-card {
+  display: block;
+  border-bottom: none;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.nook-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nook-card {
+    transition: none;
+  }
+  .nook-card:hover {
+    transform: none;
+  }
+}
+.nook-card-preview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+.nook-mini-item {
+  display: block;
+  position: relative;
+}
+.nook-mini-item::before,
+.nook-mini-item::after {
+  content: none;
+}
+.nook-mini-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+}
+.nook-card-title {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 0 0 0.2rem;
+  color: var(--text);
+}
+.nook-card-count {
+  color: var(--text-muted);
+}
+.unsorted-note {
+  color: var(--text-muted);
+  margin-top: 1.5rem;
+}
+
 section h2 {
   font-family: var(--font-body);
   font-weight: 600;
