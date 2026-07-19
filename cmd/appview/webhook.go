@@ -25,42 +25,82 @@ type tapEvent struct {
 }
 
 type tapRecordData struct {
-	DID        string `json:"did"`
-	Collection string `json:"collection"`
-	Rkey       string `json:"rkey"`
-	Action     string `json:"action"`
-	CID        string `json:"cid"`
-	Record     struct {
-		CreatedAt string `json:"createdAt"`
-		Text      string `json:"text"`
-		Season    *int   `json:"season"`
-		Episode   *int   `json:"episode"`
-		Work      struct {
-			Provider string `json:"provider"`
-			ID       string `json:"id"`
-		} `json:"work"`
-		Reply *struct {
-			Root struct {
-				URI string `json:"uri"`
-				CID string `json:"cid"`
-			} `json:"root"`
-			Parent struct {
-				URI string `json:"uri"`
-				CID string `json:"cid"`
-			} `json:"parent"`
-		} `json:"reply"`
-		Subject struct {
+	DID        string      `json:"did"`
+	Collection string      `json:"collection"`
+	Rkey       string      `json:"rkey"`
+	Action     string      `json:"action"`
+	CID        string      `json:"cid"`
+	Record     recordValue `json:"record"`
+}
+
+// recordValue is the wire shape of a record's own value — identical
+// whether it arrives as a Tap webhook event's "record" field or as the
+// "value" of one entry from com.atproto.repo.listRecords (resync.go uses
+// it that way, reading straight from a PDS instead of the firehose). One
+// decode shape, one indexing function (indexRecord below), so the webhook
+// path and the resync path can never quietly drift apart.
+type recordValue struct {
+	CreatedAt string `json:"createdAt"`
+	Text      string `json:"text"`
+	Season    *int   `json:"season"`
+	Episode   *int   `json:"episode"`
+	Work      struct {
+		Provider string `json:"provider"`
+		ID       string `json:"id"`
+	} `json:"work"`
+	Reply *struct {
+		Root struct {
 			URI string `json:"uri"`
 			CID string `json:"cid"`
-		} `json:"subject"`
-		Name        string    `json:"name"`
-		Description string    `json:"description"`
-		Works       []workRef `json:"works"`
-		Order       *int      `json:"order"`
-		Style       *struct {
-			Theme string `json:"theme"`
-		} `json:"style"`
-	} `json:"record"`
+		} `json:"root"`
+		Parent struct {
+			URI string `json:"uri"`
+			CID string `json:"cid"`
+		} `json:"parent"`
+	} `json:"reply"`
+	Subject struct {
+		URI string `json:"uri"`
+		CID string `json:"cid"`
+	} `json:"subject"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Works       []workRef `json:"works"`
+	Order       *int      `json:"order"`
+	Style       *struct {
+		Theme string `json:"theme"`
+	} `json:"style"`
+}
+
+// indexRecord writes one record into whichever local table its collection
+// belongs to — the single place that decides how a record's value maps to
+// a row, called from both the live webhook and resync.go's PDS re-read.
+func indexRecord(db *sql.DB, uri, cid, did, collection string, rec recordValue) error {
+	switch collection {
+	case "social.orbita.shelf.item":
+		return insertShelfItem(db, uri, cid, did, rec.Work.Provider, rec.Work.ID, rec.CreatedAt)
+	case "social.orbita.note":
+		var rootURI, rootCID, parentURI, parentCID *string
+		if rec.Reply != nil {
+			rootURI, rootCID = &rec.Reply.Root.URI, &rec.Reply.Root.CID
+			parentURI, parentCID = &rec.Reply.Parent.URI, &rec.Reply.Parent.CID
+		}
+		return insertNote(db, uri, cid, did, rec.Work.Provider, rec.Work.ID,
+			rec.Season, rec.Episode, rec.Text, rec.CreatedAt,
+			rootURI, rootCID, parentURI, parentCID)
+	case "social.orbita.repost":
+		return insertRepost(db, uri, cid, did, rec.Subject.URI, rec.Subject.CID, rec.CreatedAt)
+	case "social.orbita.shelf.nook":
+		theme := "default"
+		if rec.Style != nil && rec.Style.Theme != "" {
+			theme = rec.Style.Theme
+		}
+		works := make([]WorkRef, 0, len(rec.Works))
+		for _, w := range rec.Works {
+			works = append(works, WorkRef{Provider: w.Provider, WorkID: w.ID})
+		}
+		return insertNook(db, uri, cid, did, rec.Name, rec.Description, theme, rec.CreatedAt, rec.Order, works)
+	}
+	return nil
 }
 
 // Beta 2: indexes two collections now, not one. Same "only create,
@@ -94,51 +134,10 @@ func setupWebhook(mux *http.ServeMux, db *sql.DB) {
 		if evt.Type == "record" && evt.Record != nil && (evt.Record.Action == "create" || evt.Record.Action == "update") {
 			rec := evt.Record
 			uri := fmt.Sprintf("at://%s/%s/%s", rec.DID, rec.Collection, rec.Rkey)
-
-			switch rec.Collection {
-			case "social.orbita.shelf.item":
-				err := insertShelfItem(db, uri, rec.CID, rec.DID, rec.Record.Work.Provider, rec.Record.Work.ID, rec.Record.CreatedAt)
-				if err != nil {
-					log.Printf("failed to index %s: %v", uri, err)
-				} else {
-					log.Printf("indexed: %s", uri)
-				}
-			case "social.orbita.note":
-				var rootURI, rootCID, parentURI, parentCID *string
-				if rec.Record.Reply != nil {
-					rootURI, rootCID = &rec.Record.Reply.Root.URI, &rec.Record.Reply.Root.CID
-					parentURI, parentCID = &rec.Record.Reply.Parent.URI, &rec.Record.Reply.Parent.CID
-				}
-				err := insertNote(db, uri, rec.CID, rec.DID, rec.Record.Work.Provider, rec.Record.Work.ID,
-					rec.Record.Season, rec.Record.Episode, rec.Record.Text, rec.Record.CreatedAt,
-					rootURI, rootCID, parentURI, parentCID)
-				if err != nil {
-					log.Printf("failed to index %s: %v", uri, err)
-				} else {
-					log.Printf("indexed: %s", uri)
-				}
-			case "social.orbita.repost":
-				err := insertRepost(db, uri, rec.CID, rec.DID, rec.Record.Subject.URI, rec.Record.Subject.CID, rec.Record.CreatedAt)
-				if err != nil {
-					log.Printf("failed to index %s: %v", uri, err)
-				} else {
-					log.Printf("indexed: %s", uri)
-				}
-			case "social.orbita.shelf.nook":
-				theme := "default"
-				if rec.Record.Style != nil && rec.Record.Style.Theme != "" {
-					theme = rec.Record.Style.Theme
-				}
-				works := make([]WorkRef, 0, len(rec.Record.Works))
-				for _, w := range rec.Record.Works {
-					works = append(works, WorkRef{Provider: w.Provider, WorkID: w.ID})
-				}
-				err := insertNook(db, uri, rec.CID, rec.DID, rec.Record.Name, rec.Record.Description, theme, rec.Record.CreatedAt, rec.Record.Order, works)
-				if err != nil {
-					log.Printf("failed to index %s: %v", uri, err)
-				} else {
-					log.Printf("indexed: %s", uri)
-				}
+			if err := indexRecord(db, uri, rec.CID, rec.DID, rec.Collection, rec.Record); err != nil {
+				log.Printf("failed to index %s: %v", uri, err)
+			} else {
+				log.Printf("indexed: %s", uri)
 			}
 		}
 

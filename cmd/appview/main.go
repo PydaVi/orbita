@@ -61,6 +61,7 @@ func main() {
 	setupWorks(mux)
 	setupSearch(mux)
 	setupNookPage(mux, db)
+	setupResync(mux, db)
 	setupAPI(mux, db)
 
 	addr := ":8092" // 8000 is already taken by comum's api-gateway, running on the same machine

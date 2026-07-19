@@ -9,6 +9,33 @@
 
 const NOOK_THEMES = ["default", "warm", "cool", "midnight", "riso", "indigo", "manifesto"];
 
+// The local index is a cache of the PDS, not the source of truth — Tap's
+// webhook delivery only retries so hard, and restarting the appview mid-
+// development (to pick up new code) can leave a gap it never recovers
+// from (see resync.go). This re-reads everything straight from the PDS
+// and reconciles the local index against it — a manual trigger rather
+// than an automatic one, since it's a maintenance action, not something
+// that belongs on a timer competing with real traffic.
+function resyncButton() {
+  const btn = el("button", { type: "button", class: "action-btn-text", text: "resync from PDS" });
+  btn.addEventListener("click", async () => {
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "resyncing…";
+    try {
+      const counts = await fetchJSON("/api/resync", { method: "POST" });
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      btn.textContent = `resynced (${total} records) — reloading…`;
+      window.location.reload();
+    } catch (err) {
+      btn.textContent = original;
+      btn.disabled = false;
+      alert(`resync failed: ${err}`);
+    }
+  });
+  return btn;
+}
+
 async function init() {
   const app = renderShell("shelf");
   app.innerHTML = "";
@@ -20,7 +47,10 @@ async function init() {
     return;
   }
 
-  app.appendChild(el("p", {}, [el("a", { href: "/search", text: "+ Add to shelf" })]));
+  const toolbar = el("p", {}, [el("a", { href: "/search", text: "+ Add to shelf" })]);
+  toolbar.appendChild(document.createTextNode(" "));
+  toolbar.appendChild(resyncButton());
+  app.appendChild(toolbar);
 
   let items;
   try {
