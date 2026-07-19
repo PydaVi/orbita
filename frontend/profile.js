@@ -49,6 +49,11 @@ async function init() {
 // default the whole page pays for.
 const NOOK_CARD_PREVIEW_COUNT = 6;
 
+// How many nooks the summary shows before pointing at the complete page
+// (profile-shelf.js) instead — "a couple," per the author's own words,
+// not every nook the person has.
+const PROFILE_SUMMARY_NOOK_COUNT = 2;
+
 function renderNookCard(nook, handle) {
   const href = `/profile/${handle}/nook/${rkeyOf(nook.uri)}`;
   const preview = el("div", { class: "nook-card-preview" });
@@ -89,16 +94,18 @@ function renderProfilePage(app, profile) {
   hero.appendChild(heroBody);
   app.appendChild(hero);
 
-  // Beta 7: the shelf is organized by nook, not one flat grid — a nook is
-  // the primary way this person chose to present their own shelf. Shown
-  // here as compact cards (see renderNookCard above), not the complete
-  // works grid. Unsorted works get an honest mention, not silence — but
-  // not a full poster grid either: this page is a glance at someone's
-  // shelf, not the shelf itself.
-  if ((profile.nooks || []).length > 0) {
+  // Beta 7 (reconsidered once more, 2026-07-19): even a card-per-nook grid
+  // is still "the whole shelf" once every nook is in it — a summary means
+  // showing *some*, not all, of them. This is a glance at someone's shelf,
+  // not the shelf itself: a couple of nooks, then one button to the
+  // complete counterpart page (profile-shelf.js) with every nook in full
+  // and the whole Unsorted grid, for whoever actually wants that.
+  const allNooks = profile.nooks || [];
+  const shownNooks = allNooks.slice(0, PROFILE_SUMMARY_NOOK_COUNT);
+  if (shownNooks.length > 0) {
     const nooksSection = el("section", {}, [el("h2", { text: "Nooks" })]);
     const grid = el("div", { class: "nook-card-grid" });
-    for (const nook of profile.nooks) {
+    for (const nook of shownNooks) {
       grid.appendChild(renderNookCard(nook, profile.handle));
     }
     nooksSection.appendChild(grid);
@@ -110,6 +117,11 @@ function renderProfilePage(app, profile) {
     app.appendChild(
       el("p", { class: "mono unsorted-note", text: `+${unsortedCount} more, not yet organized into a nook` })
     );
+  }
+
+  if (allNooks.length > 0 || unsortedCount > 0) {
+    const fullLink = el("a", { href: `/profile/${profile.handle}/shelf`, class: "full-shelf-btn", text: "See full shelf →" });
+    app.appendChild(fullLink);
   }
 
   const notesSection = el("section", {}, [el("h2", { text: `Notes (${profile.notes.length})` })]);

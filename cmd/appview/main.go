@@ -40,6 +40,7 @@ func main() {
 	serveFrontend("/profile.js", "profile.js")
 	serveFrontend("/shelf.js", "shelf.js")
 	serveFrontend("/nook.js", "nook.js")
+	serveFrontend("/profile-shelf.js", "profile-shelf.js")
 
 	// Beta 4: the basic site layout — Feed and Profile exist as real pages
 	// (with a real nav to reach them). Beta 5: /profile/{handle} shows any
@@ -48,6 +49,13 @@ func main() {
 	serveFrontend("/profile", "profile.html")
 	mux.HandleFunc("GET /profile/{handle}", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "frontend/profile.html")
+	})
+	// Beta 7 (post-launch): /profile/{handle} only shows a summary (a
+	// couple of nook cards) — this is the complete counterpart, every nook
+	// in full plus the whole Unsorted grid, one click away via "see full
+	// shelf" rather than the default every profile pays for.
+	mux.HandleFunc("GET /profile/{handle}/shelf", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "frontend/profile-shelf.html")
 	})
 
 	sessionSecret := os.Getenv("SESSION_SECRET")

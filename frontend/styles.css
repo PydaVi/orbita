@@ -494,6 +494,23 @@ section {
   color: var(--text-muted);
   margin-top: 1.5rem;
 }
+.full-shelf-btn {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.full-shelf-btn:hover {
+  border-color: var(--signal);
+  color: var(--signal);
+}
 
 section h2 {
   font-family: var(--font-body);
