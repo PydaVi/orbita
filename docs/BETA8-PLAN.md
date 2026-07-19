@@ -67,6 +67,10 @@ Looked at H.A. Rey's *The Stars: A New Way to See Them* (1952) for how an actual
 
 Found while testing the comparison feature: a client-side redirect (or a pasted/bookmarked link) landing a DID in the `/profile/{handle}` slot instead of a real handle 404'd outright — `resolveHandleToDID` only ever tried `syntax.ParseHandle`, which correctly rejects a DID string, and there was no fallback. Fixed by trying `syntax.ParseDID` first and returning it directly when it parses — a DID is already a fully resolved identifier, every other route on this site already knows how to work with one, and requiring specifically an unresolved handle bought nothing.
 
+## Related fix, filed under Beta 7
+
+Looking at the constellation surfaced a real gap in the nook system itself: nothing capped how many nooks one account could have, and with only 7 theme regions to anchor on, many nooks piling into a handful of themes crowds those regions past legibility regardless of any single nook's own size. Fixed with a 7-nook-per-account cap — see [`BETA7-PLAN.md`](BETA7-PLAN.md) item 20 for the full reasoning (Miller's "7±2," and why 7 specifically). Filed there rather than here since it's a change to the nook system, not the constellation — the constellation just surfaced why it mattered.
+
 ## Explicitly not in this beta
 
 - Any persistence of the archetype (recomputed fresh on every profile load, same as earlier work's own choice — no confirm/hide UI, no stored history).

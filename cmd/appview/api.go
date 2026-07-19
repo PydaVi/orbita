@@ -390,6 +390,9 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 			works = append(works, ref)
 			workRefs = append(workRefs, map[string]any{"provider": w.Provider, "id": w.ID})
 		}
+		if len(works) > nookWorksLimit {
+			return nil, nil, fmt.Errorf("a nook holds at most %d works", nookWorksLimit)
+		}
 		record := map[string]any{
 			"$type":       "social.orbita.shelf.nook",
 			"name":        body.Name,
@@ -429,6 +432,16 @@ func setupAPI(mux *http.ServeMux, db *sql.DB) {
 		var body nookRequestBody
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		existingNooks, err := listNooksByAccount(db, did.String())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(existingNooks) >= maxNooksPerAccount {
+			http.Error(w, fmt.Sprintf("an account holds at most %d nooks", maxNooksPerAccount), http.StatusBadRequest)
 			return
 		}
 

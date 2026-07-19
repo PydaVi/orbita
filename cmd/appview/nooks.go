@@ -2,6 +2,31 @@ package main
 
 import "database/sql"
 
+// nookWorksLimit mirrors lexicons/social/orbita/shelf/nook.json's own
+// works.maxLength — see that file's description for the actual reasoning
+// (a nook is a curated gesture, not the shelf again; the real ceiling
+// there is the Sight & Sound poll's 10-title ballot and "best of the
+// year/decade" lists, not any technical constraint). This appview never
+// validated an incoming record against its own Lexicon on write, so this
+// was only ever enforced client-side (shelf.js's NOOK_WORKS_LIMIT) until
+// now — a real gap, since nothing stopped a direct API call from
+// exceeding it.
+//
+// maxNooksPerAccount exists for the same reason spread across nooks
+// instead of within one: this product has exactly 7 curated nook themes
+// (style.theme's knownValues), and the constellation (see
+// constellation.go/js) anchors on theme — many nooks sharing few themes
+// crowd the same region and stop being legible as distinct shapes. 7 was
+// chosen to echo that same curated theme count directly (roughly one
+// standout nook per mood), sitting within Miller's classic "7±2" chunking
+// estimate for how many categories stay easy to hold in mind at once
+// (itself later refined tighter, to around 4, by Cowan 2001 — 7 is the
+// generous end of a real range, not picked in isolation).
+const (
+	nookWorksLimit     = 50
+	maxNooksPerAccount = 7
+)
+
 // Beta 7: a nook is the primary way a shelf is organized and shown to
 // visitors — not an optional side list. The whole works array lives in one
 // record; "editing" a nook (renaming, reordering, adding/removing a work)

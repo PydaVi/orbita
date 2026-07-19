@@ -33,6 +33,16 @@ const NOOK_THEMES = ["default", "warm", "cool", "midnight", "riso", "indigo", "m
 // would silently produce a record the schema itself calls invalid.
 const NOOK_WORKS_LIMIT = 50;
 
+// This product has exactly 7 curated nook themes, and the constellation
+// (constellation.js) anchors on theme — many nooks sharing few themes
+// crowd the same region and stop reading as distinct shapes. 7 echoes
+// that same curated count directly, sitting within Miller's classic
+// "7±2" estimate for how many categories stay easy to hold in mind at
+// once (a more rigorous later revision, Cowan 2001, puts it closer to 4 —
+// 7 is the generous end of a real range). Mirrors maxNooksPerAccount in
+// nooks.go by hand; enforced there too, not just here.
+const MAX_NOOKS_PER_ACCOUNT = 7;
+
 // The local index is a cache of the PDS, not the source of truth — Tap's
 // webhook delivery only retries so hard, and restarting the appview mid-
 // development (to pick up new code) can leave a gap it never recovers
@@ -466,7 +476,13 @@ function renderOrganizer(root, state) {
   for (const nook of state.nooks) {
     nooksArea.appendChild(renderNookBox(nook, state, { removeFromShelf, rerender }));
   }
-  nooksArea.appendChild(renderNewNookTrigger(state, rerender));
+  if (state.nooks.length < MAX_NOOKS_PER_ACCOUNT) {
+    nooksArea.appendChild(renderNewNookTrigger(state, rerender));
+  } else {
+    nooksArea.appendChild(
+      el("p", { class: "empty", text: `${MAX_NOOKS_PER_ACCOUNT} nooks is the most one account holds — delete one to make room for another` })
+    );
+  }
   makeNookReorderArea(
     nooksArea,
     () => Array.from(nooksArea.querySelectorAll(".nook[data-nook-uri]")),
