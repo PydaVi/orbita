@@ -21,12 +21,12 @@
           },
           "works": {
             "type": "array",
-            "maxLength": 200,
+            "maxLength": 50,
             "items": {
               "type": "ref",
               "ref": "social.orbita.shelf.item#work"
             },
-            "description": "Order is the array order — entirely the author's own choice, not derived from any criteria the system understands."
+            "description": "Order is the array order — entirely the author's own choice, not derived from any criteria the system understands. Capped well below the protocol's own per-record size ceiling (MAX_CBOR_RECORD_SIZE, 1 MiB, comfortably fits well over 10,000 entries this small) — the real constraint is that a nook is a curated gesture, not the shelf again: the Sight & Sound poll's decades-old convention of a 10-title ballot, and most 'best of the year/decade' lists landing well under 50, are the actual reference points."
           },
           "style": {
             "type": "ref",

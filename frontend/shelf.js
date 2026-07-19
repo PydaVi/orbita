@@ -9,6 +9,15 @@
 
 const NOOK_THEMES = ["default", "warm", "cool", "midnight", "riso", "indigo", "manifesto"];
 
+// A nook is a curated gesture, not the whole shelf again — see the
+// Lexicon's own works.maxLength and its comment for the reasoning (the
+// Sight & Sound top-10 ballot, "best of the year/decade" lists, all
+// cluster well under this). Enforced here too, not just at the schema
+// level, since this appview doesn't validate incoming records against the
+// Lexicon on write — without a client-side check, dragging past the cap
+// would silently produce a record the schema itself calls invalid.
+const NOOK_WORKS_LIMIT = 50;
+
 // The local index is a cache of the PDS, not the source of truth — Tap's
 // webhook delivery only retries so hard, and restarting the appview mid-
 // development (to pick up new code) can leave a gap it never recovers
@@ -243,6 +252,14 @@ function renderOrganizer(root, state) {
   const moveWork = async (data, targetNookUri, beforeWork, before) => {
     const key = `${data.provider}/${data.id}`;
     const touched = new Set();
+
+    if (targetNookUri) {
+      const target = state.nooks.find((n) => n.uri === targetNookUri);
+      if (target && target.works.length >= NOOK_WORKS_LIMIT && !target.works.some((w) => workKey(w) === key)) {
+        alert(`a nook holds at most ${NOOK_WORKS_LIMIT} works — it's meant to stay a curated gesture, not the whole shelf again`);
+        return;
+      }
+    }
 
     if (data.fromNook) {
       const src = state.nooks.find((n) => n.uri === data.fromNook);
