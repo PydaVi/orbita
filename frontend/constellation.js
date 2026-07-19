@@ -199,7 +199,16 @@ function computeConstellationLayout(nodes, width, height) {
   return { items, anchors, cx, cy, anchorRadius };
 }
 
-function renderConstellationCanvas(canvas, layout) {
+// compareLayout, when given, is the viewer's *own* shape — computed at
+// the same canvas dimensions, so its theme anchors land in exactly the
+// same places as the profile being viewed (that alignment is the entire
+// point of anchoring on a small shared vocabulary rather than a free
+// one). Drawn first, as hollow rings only — no connecting lines, no
+// labels — so it reads as a ghosted reference behind the real content,
+// not a second competing constellation. Where the two shapes cluster in
+// the same region, that's the affinity this whole anchor system exists
+// to make visible.
+function renderConstellationCanvas(canvas, layout, compareLayout) {
   const { items, anchors, cx, cy, anchorRadius } = layout;
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -220,6 +229,19 @@ function renderConstellationCanvas(canvas, layout) {
   ctx.arc(cx, cy, anchorRadius, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
+
+  if (compareLayout) {
+    for (const it of compareLayout.items) {
+      const color = THEME_COLORS[it.theme] || THEME_COLORS.unsorted;
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(it.x, it.y, it.r + 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // Region labels — only for themes actually present, so an account with
   // three nooks doesn't show five empty labels for moods it never touched.
@@ -421,11 +443,18 @@ async function fetchConstellationNodes(handle) {
 // Mounts the interactive canvas into an already-appended <canvas> element —
 // appended first because sizing reads the element's real, laid-out
 // dimensions (getBoundingClientRect), which only exist once it's actually
-// in the document with its CSS applied.
-function mountConstellationCanvas(canvas, nodes) {
+// in the document with its CSS applied. compareNodes, when given (the
+// signed-in viewer's own shelf, looking at someone else's profile), is
+// rendered as the ghosted overlay described above — real affinity, shown,
+// not just a promise the anchor system makes in the abstract.
+function mountConstellationCanvas(canvas, nodes, compareNodes) {
   const rect = canvas.getBoundingClientRect();
-  const layout = computeConstellationLayout(nodes, rect.width, rect.height || rect.width * 0.4);
-  renderConstellationCanvas(canvas, layout);
+  const w = rect.width;
+  const h = rect.height || rect.width * 0.4;
+  const layout = computeConstellationLayout(nodes, w, h);
+  const compareLayout =
+    compareNodes && compareNodes.length >= 2 ? computeConstellationLayout(compareNodes, w, h) : null;
+  renderConstellationCanvas(canvas, layout, compareLayout);
 
   const tooltip = el("div", { class: "constellation-tooltip mono", style: "display:none" });
   document.body.appendChild(tooltip);

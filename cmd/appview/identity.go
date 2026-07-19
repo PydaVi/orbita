@@ -106,7 +106,17 @@ func resolveIdentityFull(ctx context.Context, db *sql.DB, didStr string) (handle
 // so a handle that doesn't resolve, or a handle/DID mismatch, is a real
 // error here — there's no fallback string to show for an identity that
 // doesn't exist).
+// resolveHandleToDID also accepts a DID directly (returned as-is, no
+// lookup needed) — every /profile/{handle}-shaped route uses this to
+// resolve its path segment, and a DID landing in that segment (a client
+// redirect using an unresolved identity, a pasted link, a bookmark) is a
+// real identifier this appview already knows how to look everything else
+// up by. Rejecting it outright, requiring a real handle specifically,
+// bought nothing.
 func resolveHandleToDID(ctx context.Context, handleStr string) (string, error) {
+	if did, err := syntax.ParseDID(handleStr); err == nil {
+		return did.String(), nil
+	}
 	h, err := syntax.ParseHandle(handleStr)
 	if err != nil {
 		return "", err

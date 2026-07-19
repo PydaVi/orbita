@@ -399,6 +399,11 @@ li.feed-card:last-child {
   color: var(--text);
   max-width: 240px;
 }
+.constellation-compare-note {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin: 0.5rem 0 0;
+}
 
 /* ---- the archetype: a geometric signature derived from the same shape,
    not a separate widget bolted beside it — the symbol is that person's

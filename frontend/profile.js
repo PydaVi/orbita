@@ -39,7 +39,15 @@ async function init() {
   // first paint settles, not popped in later.
   const constellationNodes = await fetchConstellationNodes(handle);
 
-  renderProfilePage(app, profile, constellationNodes);
+  // Beta 8 (comparison, 2026-07-19): the whole reason an anchor system
+  // exists is so two shelves' shapes can actually be compared, not just
+  // admired separately — visiting someone else's profile while signed in
+  // fetches your own shape too, so it can be ghosted behind theirs.
+  // Skipped entirely on your own profile (nothing to compare against).
+  const viewer = await currentViewer();
+  const compareNodes = viewer && viewer.handle !== handle ? await fetchConstellationNodes(viewer.handle) : [];
+
+  renderProfilePage(app, profile, constellationNodes, compareNodes);
 }
 
 // Beta 7 (reconsidered again, 2026-07-19): the profile used to render every
@@ -84,17 +92,23 @@ function renderNookCard(nook, handle) {
   return card;
 }
 
-function renderProfilePage(app, profile, constellationNodes) {
+function renderProfilePage(app, profile, constellationNodes, compareNodes) {
   // Beta 8 (repositioned 2026-07-19): where a cover photo would
   // traditionally sit on a profile — a person's own taste as a visual
   // signature, before their name and bio, not a widget tucked further
   // down the page.
   const hasConstellation = (constellationNodes || []).length >= 2;
+  const hasCompare = (compareNodes || []).length >= 2;
   if (hasConstellation) {
     const cover = el("canvas", { class: "constellation-cover" });
     const coverFrame = el("div", { class: "constellation-frame" }, [cover]);
     app.appendChild(coverFrame);
-    mountConstellationCanvas(cover, constellationNodes);
+    mountConstellationCanvas(cover, constellationNodes, compareNodes);
+    if (hasCompare) {
+      app.appendChild(
+        el("p", { class: "mono constellation-compare-note", text: "hollow rings — your own shelf, overlaid" })
+      );
+    }
   }
 
   const hero = el("div", { class: "hero" });
