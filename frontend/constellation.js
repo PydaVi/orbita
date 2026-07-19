@@ -81,25 +81,43 @@ function computeConstellationLayout(nodes, width, height) {
   const anchorRadius = Math.min(width, height) * 0.36;
   const themesPresent = new Set();
 
+  // Starting each node near its *own* target (not all of them piled at
+  // dead center) matters more than it looks: with everything jittered
+  // around one shared point, most pairs start almost on top of each
+  // other, and repulsion at near-zero distance is enormous regardless of
+  // how it's tuned — the simulation's first few iterations fling
+  // everything straight to the walls before the anchor pull ever gets a
+  // say. Starting near the real target means repulsion only ever has to
+  // gently sort out nodes that genuinely belong in the same neighborhood.
   const items = nodes.map((n) => {
     const theme = n.theme || "unsorted";
     themesPresent.add(theme);
     const anchor = themeAnchor(theme, cx, cy, anchorRadius);
     const pOff = providerOffset(n.provider, anchorRadius * 0.22);
     const dOff = decadeOffset(n.year, anchorRadius * 0.14);
+    const target = { x: anchor.x + pOff.x + dOff.x, y: anchor.y + pOff.y + dOff.y };
     return {
       node: n,
       theme,
-      x: cx + (Math.random() - 0.5) * 60,
-      y: cy + (Math.random() - 0.5) * 60,
+      x: target.x + (Math.random() - 0.5) * 40,
+      y: target.y + (Math.random() - 0.5) * 40,
       vx: 0,
       vy: 0,
-      target: { x: anchor.x + pOff.x + dOff.x, y: anchor.y + pOff.y + dOff.y },
+      target,
       r: dotRadius(n.noteCount),
     };
   });
 
-  for (let iter = 0; iter < 160; iter++) {
+  // Repulsion scaled by canvas area (not a bare constant) so it stays a
+  // gentle spacing force regardless of how big the canvas is rendered —
+  // an unscaled constant here is what caused the first version to
+  // explode: at close range (small d2) it dwarfed the anchor pull by two
+  // orders of magnitude and threw every node straight into the wall clamp,
+  // which is exactly the "dots pinned to the edges" bug this replaces.
+  const repStrength = width * height * 0.00004;
+  const maxForce = 6;
+
+  for (let iter = 0; iter < 200; iter++) {
     for (let i = 0; i < items.length; i++) {
       const a = items[i];
       let fx = (a.target.x - a.x) * 0.03;
@@ -109,10 +127,15 @@ function computeConstellationLayout(nodes, width, height) {
         const b = items[j];
         const dx = a.x - b.x;
         const dy = a.y - b.y;
-        const d2 = Math.max(dx * dx + dy * dy, 30);
-        const rep = 900 / d2;
+        const d2 = Math.max(dx * dx + dy * dy, 60);
+        const rep = repStrength / d2;
         fx += dx * rep;
         fy += dy * rep;
+      }
+      const mag = Math.sqrt(fx * fx + fy * fy);
+      if (mag > maxForce) {
+        fx = (fx / mag) * maxForce;
+        fy = (fy / mag) * maxForce;
       }
       a.vx = (a.vx + fx) * 0.72;
       a.vy = (a.vy + fy) * 0.72;
@@ -317,45 +340,53 @@ function computeArchetype(nodes) {
   };
 }
 
-// ---- entry point ----
+// ---- public surface — profile.js decides where each piece goes (the
+// cover canvas and the archetype card end up in different parts of the
+// page, not bundled into one section), fetching the graph once and
+// handing these pieces the same node array. ----
 
-async function renderConstellationSection(container, handle) {
-  let data;
+async function fetchConstellationNodes(handle) {
   try {
-    data = await fetchJSON(`/api/profile/${handle}/constellation`);
+    const data = await fetchJSON(`/api/profile/${handle}/constellation`);
+    return data.nodes || [];
   } catch {
-    return; // non-fatal — the rest of the profile already rendered
+    return []; // non-fatal — the rest of the profile still renders
   }
-  const nodes = data.nodes || [];
-  if (nodes.length < 2) return; // not enough to be a shape yet
+}
 
-  const section = el("section", { class: "constellation-section" }, [el("h2", { text: "Constellation" })]);
-  const canvas = el("canvas", { class: "constellation-canvas" });
-  section.appendChild(canvas);
-  container.appendChild(section);
+// Mounts the interactive canvas into an already-appended <canvas> element —
+// appended first because sizing reads the element's real, laid-out
+// dimensions (getBoundingClientRect), which only exist once it's actually
+// in the document with its CSS applied.
+function mountConstellationCanvas(canvas, nodes) {
+  const rect = canvas.getBoundingClientRect();
+  const { items, anchors } = computeConstellationLayout(nodes, rect.width, rect.height || rect.width * 0.4);
+  renderConstellationCanvas(canvas, items, anchors);
 
   const tooltip = el("div", { class: "constellation-tooltip mono", style: "display:none" });
   document.body.appendChild(tooltip);
-
-  const rect = canvas.getBoundingClientRect();
-  const { items, anchors } = computeConstellationLayout(nodes, rect.width, rect.height || rect.width * 0.6);
-  renderConstellationCanvas(canvas, items, anchors);
   attachConstellationInteractivity(canvas, items, tooltip);
+}
 
+// The archetype's own "symbol" — that person's real layout, recomputed at
+// a small fixed size, same mechanic as the full canvas. Same appended-
+// first requirement as above.
+function mountArchetypeSymbol(canvas, nodes) {
+  const { items } = computeConstellationLayout(nodes, 120, 120);
+  renderConstellationCanvas(canvas, items, {});
+}
+
+function buildArchetypeCard(nodes) {
   const archetype = computeArchetype(nodes);
-  if (archetype) {
-    const symbolCanvas = el("canvas", { class: "archetype-symbol" });
-    const card = el("div", { class: "archetype-card" }, [
-      symbolCanvas,
-      el("div", { class: "archetype-body" }, [
-        el("h3", { class: "archetype-title", text: archetype.title }),
-        el("p", { class: "archetype-voice", text: archetype.voice }),
-        el("p", { class: "archetype-evidence mono", text: archetype.evidence }),
-      ]),
-    ]);
-    section.appendChild(card);
-
-    const symbolLayout = computeConstellationLayout(nodes, 120, 120);
-    renderConstellationCanvas(symbolCanvas, symbolLayout.items, {});
-  }
+  if (!archetype) return null;
+  const symbolCanvas = el("canvas", { class: "archetype-symbol" });
+  const card = el("div", { class: "archetype-card" }, [
+    symbolCanvas,
+    el("div", { class: "archetype-body" }, [
+      el("h3", { class: "archetype-title", text: archetype.title }),
+      el("p", { class: "archetype-voice", text: archetype.voice }),
+      el("p", { class: "archetype-evidence mono", text: archetype.evidence }),
+    ]),
+  ]);
+  return { card, symbolCanvas };
 }

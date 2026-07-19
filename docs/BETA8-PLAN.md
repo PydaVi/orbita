@@ -34,6 +34,14 @@ The three-way spread/cohesion thresholds (`levelOf`, cutoffs at 0.4/0.7 and 0.3/
 
 Verifying the new endpoint against a copy of the real database surfaced a real, pre-existing bug unrelated to this beta: `work_cache` never got a migration for its `overview` column (the same class of gap already fixed for `notes` and `nooks` in earlier commits) — `setCachedWork` had been silently failing on every cache miss, meaning every not-yet-cached work was being re-fetched from TMDB on every single lookup instead of caching after the first. Fixed in `db.go` with the same `ensureColumn` pattern already established.
 
+## First real use, two fixes
+
+Screenshotted right after shipping: every dot was pinned to the canvas edges/corners, with the region labels floating in empty space in the middle — nothing about it read as a constellation.
+
+**The physics were broken, not just untuned.** Repulsion used a bare constant (`900 / d²`) with no relationship to canvas size, and every node started jittered around one shared center point regardless of its target region — meaning most pairs began almost on top of each other, where `900 / d²` is enormous. The anchor pull (`× 0.03`) never stood a chance against it; the first few of 160 iterations flung everything straight into the wall clamp, and it never recovered. Fixed two ways: repulsion is now scaled by canvas area (`width × height × 0.00004`, the same kind of scaling earlier product work used for the same reason) so it stays a gentle spacing force regardless of render size, and each node now starts jittered around its *own* target instead of a shared center, so repulsion only ever has to locally sort out nodes that genuinely belong near each other. A hard per-iteration force cap was added as a second line of defense against the same class of blow-up, independent of tuning.
+
+**Placement moved to match the ask directly.** The constellation now sits where a cover photo would traditionally go — full-width, wide-and-shallow (`.constellation-cover`), above the identity block, not a section further down the page. The archetype card moved to just after the bio, inside the hero body itself, not bundled below the big canvas. This meant splitting what was one `renderConstellationSection()` function into a small public surface (`fetchConstellationNodes`, `mountConstellationCanvas`, `mountArchetypeSymbol`, `buildArchetypeCard`) so `profile.js` could place each piece independently while still fetching the graph once — and fetching it earlier, alongside the profile itself in `init()`, since a cover has to be ready before the page's first paint, not popped in after.
+
 ## Explicitly not in this beta
 
 - Any persistence of the archetype (recomputed fresh on every profile load, same as earlier work's own choice — no confirm/hide UI, no stored history).

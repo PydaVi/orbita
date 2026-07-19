@@ -341,15 +341,23 @@ li.feed-card:last-child {
 
 /* ---- Beta 8: the constellation — a visual signature built from a
    person's real nooks and themes (see constellation.js), not a generic
-   chart. The canvas is a plain block at a fixed aspect ratio so the force
-   layout (computed once, in JS, at the actual rendered size) matches
-   what's drawn — no CSS scaling of an already-positioned canvas. ---- */
-.constellation-canvas {
+   chart. Sits where a cover photo would traditionally go: full-width,
+   wide and shallow like a banner, above the identity block rather than a
+   widget further down the page. Fixed aspect ratio so the force layout
+   (computed once, in JS, at the actual rendered size) matches what's
+   drawn — no CSS scaling of an already-positioned canvas. ---- */
+.constellation-cover {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 3 / 1;
+  margin-bottom: 2rem;
   background: var(--surface);
   border: 1px solid var(--rule);
+}
+@media (max-width: 640px) {
+  .constellation-cover {
+    aspect-ratio: 4 / 3;
+  }
 }
 .constellation-tooltip {
   position: fixed;

@@ -33,7 +33,13 @@ async function init() {
     return;
   }
 
-  renderProfilePage(app, profile);
+  // Fetched alongside the profile itself (not as an afterthought once the
+  // rest is already on screen) — the constellation sits where a cover
+  // would traditionally go, so it needs to be ready before the page's
+  // first paint settles, not popped in later.
+  const constellationNodes = await fetchConstellationNodes(handle);
+
+  renderProfilePage(app, profile, constellationNodes);
 }
 
 // Beta 7 (reconsidered again, 2026-07-19): the profile used to render every
@@ -78,7 +84,18 @@ function renderNookCard(nook, handle) {
   return card;
 }
 
-function renderProfilePage(app, profile) {
+function renderProfilePage(app, profile, constellationNodes) {
+  // Beta 8 (repositioned 2026-07-19): where a cover photo would
+  // traditionally sit on a profile — a person's own taste as a visual
+  // signature, before their name and bio, not a widget tucked further
+  // down the page.
+  const hasConstellation = (constellationNodes || []).length >= 2;
+  if (hasConstellation) {
+    const cover = el("canvas", { class: "constellation-cover" });
+    app.appendChild(cover);
+    mountConstellationCanvas(cover, constellationNodes);
+  }
+
   const hero = el("div", { class: "hero" });
   const avatar = avatarEl(profile.handle, profile.avatarUrl);
   avatar.classList.add("avatar-lg");
@@ -90,15 +107,25 @@ function renderProfilePage(app, profile) {
   if (profile.bio) {
     heroBody.appendChild(el("p", { class: "overview", text: profile.bio }));
   }
+
+  // The archetype reads as a continuation of the bio — a second, more
+  // geometric way of answering "who is this," not a separate feature.
+  // The card's DOM is built now, but its symbol canvas can't be mounted
+  // (rendered) until it's actually attached to the live document further
+  // down — mounting reads the element's real laid-out size, which a
+  // detached node doesn't have yet.
+  const archetypeBuilt = hasConstellation ? buildArchetypeCard(constellationNodes) : null;
+  if (archetypeBuilt) {
+    heroBody.appendChild(archetypeBuilt.card);
+  }
+
   heroBody.appendChild(el("p", { class: "mono", text: profile.did }));
   hero.appendChild(heroBody);
   app.appendChild(hero);
 
-  // Beta 8: a visual signature of this person's own taste, computed from
-  // their real nooks/themes — see constellation.js. Fetches its own data
-  // and appends itself once ready, same as everything else on this page;
-  // not awaited here since there's nothing else worth blocking on it.
-  renderConstellationSection(app, profile.handle);
+  if (archetypeBuilt) {
+    mountArchetypeSymbol(archetypeBuilt.symbolCanvas, constellationNodes);
+  }
 
   // Beta 7 (reconsidered once more, 2026-07-19): even a card-per-nook grid
   // is still "the whole shelf" once every nook is in it — a summary means
