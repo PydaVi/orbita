@@ -237,11 +237,40 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
 // stocked riso ink colors), aizuri-e ukiyo-e "blue pictures" (indigo —
 // Prussian blue, popularized in Japan in the 1820s, reserved for
 // contemplative landscape prints), and Soviet Constructivist poster design
-// (manifesto — flag-red on near-black). Injected once per page load
-// (idempotent, checked by id). Each highlight tone must match its
-// --duo-*-hi custom property in styles.css by hand — SVG filter tables
-// take normalized numbers, not CSS custom properties, so there's no way to
-// share one source of truth here.
+// (manifesto — flag-red on near-black).
+//
+// A full duotone remap (2026-07-19: first cut) turned out too strong —
+// posters became unrecognizable, since every midtone gets pulled toward
+// one of two extremes with nothing of the original color left. Softened
+// by blending: the duotone result is faded to DUOTONE_STRENGTH opacity
+// (feComponentTransfer on alpha) and composited back over the untouched
+// SourceGraphic (feBlend) — a tint, not a repaint. Still one clear mood
+// per theme, but the actual photo underneath stays legible.
+//
+// Injected once per page load (idempotent, checked by id). Each highlight
+// tone must match its --duo-*-hi custom property in styles.css by hand —
+// SVG filter tables take normalized numbers, not CSS custom properties, so
+// there's no way to share one source of truth here.
+const DUOTONE_STRENGTH = 0.45;
+
+function duotoneFilter(id, shadow, highlight) {
+  const table = (s, h) => `${s} ${h}`;
+  return `
+    <filter id="${id}" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0" result="gray"/>
+      <feComponentTransfer in="gray" result="duo">
+        <feFuncR type="table" tableValues="${table(shadow[0], highlight[0])}"></feFuncR>
+        <feFuncG type="table" tableValues="${table(shadow[1], highlight[1])}"></feFuncG>
+        <feFuncB type="table" tableValues="${table(shadow[2], highlight[2])}"></feFuncB>
+      </feComponentTransfer>
+      <feComponentTransfer in="duo" result="duoFaded">
+        <feFuncA type="table" tableValues="${DUOTONE_STRENGTH} ${DUOTONE_STRENGTH}"></feFuncA>
+      </feComponentTransfer>
+      <feBlend in="duoFaded" in2="SourceGraphic" mode="normal"/>
+    </filter>
+  `;
+}
+
 function ensureDuotoneDefs() {
   if (document.getElementById("duotone-defs")) return;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -249,58 +278,13 @@ function ensureDuotoneDefs() {
   svg.setAttribute("width", "0");
   svg.setAttribute("height", "0");
   svg.style.position = "absolute";
-  const grayscale =
-    '<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>';
-  svg.innerHTML = `
-    <filter id="duotone-warm" color-interpolation-filters="sRGB">
-      ${grayscale}
-      <feComponentTransfer>
-        <feFuncR type="table" tableValues="0.125 0.886"></feFuncR>
-        <feFuncG type="table" tableValues="0.063 0.643"></feFuncG>
-        <feFuncB type="table" tableValues="0.039 0.361"></feFuncB>
-      </feComponentTransfer>
-    </filter>
-    <filter id="duotone-cool" color-interpolation-filters="sRGB">
-      ${grayscale}
-      <feComponentTransfer>
-        <feFuncR type="table" tableValues="0.039 0.561"></feFuncR>
-        <feFuncG type="table" tableValues="0.078 0.706"></feFuncG>
-        <feFuncB type="table" tableValues="0.122 0.820"></feFuncB>
-      </feComponentTransfer>
-    </filter>
-    <filter id="duotone-midnight" color-interpolation-filters="sRGB">
-      ${grayscale}
-      <feComponentTransfer>
-        <feFuncR type="table" tableValues="0 0.290"></feFuncR>
-        <feFuncG type="table" tableValues="0 0.333"></feFuncG>
-        <feFuncB type="table" tableValues="0 0.471"></feFuncB>
-      </feComponentTransfer>
-    </filter>
-    <filter id="duotone-riso" color-interpolation-filters="sRGB">
-      ${grayscale}
-      <feComponentTransfer>
-        <feFuncR type="table" tableValues="0 1"></feFuncR>
-        <feFuncG type="table" tableValues="0.514 0.282"></feFuncG>
-        <feFuncB type="table" tableValues="0.541 0.690"></feFuncB>
-      </feComponentTransfer>
-    </filter>
-    <filter id="duotone-indigo" color-interpolation-filters="sRGB">
-      ${grayscale}
-      <feComponentTransfer>
-        <feFuncR type="table" tableValues="0.051 0.659"></feFuncR>
-        <feFuncG type="table" tableValues="0.141 0.788"></feFuncG>
-        <feFuncB type="table" tableValues="0.212 0.851"></feFuncB>
-      </feComponentTransfer>
-    </filter>
-    <filter id="duotone-manifesto" color-interpolation-filters="sRGB">
-      ${grayscale}
-      <feComponentTransfer>
-        <feFuncR type="table" tableValues="0.039 0.843"></feFuncR>
-        <feFuncG type="table" tableValues="0.039 0.188"></feFuncG>
-        <feFuncB type="table" tableValues="0.039 0.122"></feFuncB>
-      </feComponentTransfer>
-    </filter>
-  `;
+  svg.innerHTML =
+    duotoneFilter("duotone-warm", [0.125, 0.063, 0.039], [0.886, 0.643, 0.361]) +
+    duotoneFilter("duotone-cool", [0.039, 0.078, 0.122], [0.561, 0.706, 0.82]) +
+    duotoneFilter("duotone-midnight", [0, 0, 0], [0.29, 0.333, 0.471]) +
+    duotoneFilter("duotone-riso", [0, 0.514, 0.541], [1, 0.282, 0.69]) +
+    duotoneFilter("duotone-indigo", [0.051, 0.141, 0.212], [0.659, 0.788, 0.851]) +
+    duotoneFilter("duotone-manifesto", [0.039, 0.039, 0.039], [0.843, 0.188, 0.122]);
   document.body.appendChild(svg);
 }
 
