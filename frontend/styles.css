@@ -339,6 +339,74 @@ li.feed-card:last-child {
   color: var(--text);
 }
 
+/* ---- Beta 8: the constellation — a visual signature built from a
+   person's real nooks and themes (see constellation.js), not a generic
+   chart. The canvas is a plain block at a fixed aspect ratio so the force
+   layout (computed once, in JS, at the actual rendered size) matches
+   what's drawn — no CSS scaling of an already-positioned canvas. ---- */
+.constellation-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+}
+.constellation-tooltip {
+  position: fixed;
+  z-index: 900;
+  pointer-events: none;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text);
+  max-width: 240px;
+}
+
+/* ---- the archetype: a geometric signature derived from the same shape,
+   not a separate widget bolted beside it — the symbol is that person's
+   own real layout, recomputed at a small fixed size, same mechanic as the
+   full canvas above. ---- */
+.archetype-card {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+}
+.archetype-symbol {
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+}
+.archetype-title {
+  font-family: var(--font-title);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.4rem;
+  margin: 0 0 0.3rem;
+  color: var(--text);
+}
+.archetype-voice {
+  font-style: italic;
+  color: var(--text-muted);
+  margin: 0 0 0.4rem;
+  max-width: 50ch;
+}
+.archetype-evidence {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+@media (max-width: 640px) {
+  .archetype-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 /* ---- rhythm for everything below the hero ---- */
 section {
   margin-top: 2.75rem;

@@ -78,27 +78,31 @@ point was how personal an old Tumblr theme used to feel. See
 record in this project that gets edited after creation, which meant the
 webhook had to start handling `update` events, not just `create`).
 
-## Beta 8 — constellation and archetype on the profile
+## Beta 8 — constellation and archetype on the profile ✅
 
 **Problem:** flagged in review after Beta 5 shipped (2026-07-17): profile
 pages don't yet have the constellation-style visualization or the
 geometric archetype from earlier product work — both were named as
 explicit stretch goals in Beta 5, not gaps to fix retroactively. Placed
 right after the shelf-as-creative-space beta on purpose: what a
-constellation actually visualizes (raw shelf items? label-playlists? both,
-differently?) may depend on how that beta resolves the shelf's own shape,
-so building this first risked visualizing something about to change
-underneath it.
+constellation actually visualizes depended on how Beta 7 resolved the
+shelf's own shape — building this first would have risked visualizing
+something about to change underneath it.
 
-**Rough shape:** the force-layout idea from earlier product work —
-repulsion, attraction, and global anchors by tag/type/decade, so shelves
-with similar taste light up the same region of the drawing across
-different profiles — recomputed here against this project's own data
-shape (and, depending on how Beta 7 lands, possibly against label-
-playlists instead of a flat shelf). Archetype is a geometric signature
-derived from the shape of one person's own constellation (thematic
-dispersion + cohesion) — it can't be built before the constellation itself
-exists, since it's computed from it, not alongside it.
+**What shipped:** a reimagining, not a port — see
+[`BETA8-PLAN.md`](BETA8-PLAN.md) for the full account. This catalog never
+built a genre/tag pipeline, so there's no shared vocabulary to hash into
+cross-profile anchor positions the way earlier work did. What this
+product has instead, uniquely, is a nook's own **theme** — a small,
+curated, shared vocabulary (Beta 7) — so the constellation is anchored on
+theme, not genre, with provider and decade as secondary pulls. Nook
+membership is already a real, deliberate grouping here, so edges between
+works in the same nook are drawn directly, not inferred from overlap.
+Archetype is fully redone: two metrics recomputed against this project's
+own shape (spread across theme regions; cohesion as the share of a shelf
+inside its single biggest nook — no union-find needed, since a nook
+already *is* the grouping), and nine entirely new names, none reused from
+anywhere else.
 
 ## Beta 9 — forum
 

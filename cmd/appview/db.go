@@ -65,6 +65,14 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(workCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating work_cache schema: %w", err)
 	}
+	// Same reasoning as notes/nooks below: an existing work_cache table
+	// (any database from before `overview` was added to workCacheSchema)
+	// needs the column added explicitly. Found live: setCachedWork was
+	// silently failing on every cache miss for lack of this column, so
+	// every uncached work was being re-fetched from TMDB on every lookup.
+	if err := ensureColumn(db, "work_cache", "overview", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return nil, fmt.Errorf("migrating work_cache.overview: %w", err)
+	}
 	if _, err := db.Exec(seasonCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating season_cache schema: %w", err)
 	}

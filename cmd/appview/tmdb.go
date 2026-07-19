@@ -167,18 +167,26 @@ func resolveWork(provider, id string) (resolvedWork, error) {
 // failure (unsupported provider, TMDB down, rate limited) instead of
 // breaking the page — same fail-open spirit as comum's Redis cache.
 func displayWork(db *sql.DB, provider, workID string) (title, posterURL, overview string) {
-	if t, p, _, o, ok := getCachedWork(db, provider, workID); ok {
-		return t, p, o
+	title, posterURL, _, overview = displayWorkFull(db, provider, workID)
+	return title, posterURL, overview
+}
+
+// displayWorkFull is displayWork plus the year — dropped by displayWork
+// itself since nothing needed it until the constellation (constellation.go)
+// wanted decades to group by.
+func displayWorkFull(db *sql.DB, provider, workID string) (title, posterURL, year, overview string) {
+	if t, p, y, o, ok := getCachedWork(db, provider, workID); ok {
+		return t, p, y, o
 	}
 
 	w, err := resolveWork(provider, workID)
 	if err != nil {
 		log.Printf("could not resolve %s/%s, showing raw id: %v", provider, workID, err)
-		return fmt.Sprintf("%s/%s", provider, workID), "", ""
+		return fmt.Sprintf("%s/%s", provider, workID), "", "", ""
 	}
 
 	if err := setCachedWork(db, provider, workID, w.Title, w.PosterURL, w.Year, w.Overview); err != nil {
 		log.Printf("failed to cache %s/%s: %v", provider, workID, err)
 	}
-	return w.Title, w.PosterURL, w.Overview
+	return w.Title, w.PosterURL, w.Year, w.Overview
 }

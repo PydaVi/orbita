@@ -94,6 +94,12 @@ function renderProfilePage(app, profile) {
   hero.appendChild(heroBody);
   app.appendChild(hero);
 
+  // Beta 8: a visual signature of this person's own taste, computed from
+  // their real nooks/themes — see constellation.js. Fetches its own data
+  // and appends itself once ready, same as everything else on this page;
+  // not awaited here since there's nothing else worth blocking on it.
+  renderConstellationSection(app, profile.handle);
+
   // Beta 7 (reconsidered once more, 2026-07-19): even a card-per-nook grid
   // is still "the whole shelf" once every nook is in it — a summary means
   // showing *some*, not all, of them. This is a glance at someone's shelf,
