@@ -92,7 +92,8 @@ function renderProfilePage(app, profile, constellationNodes) {
   const hasConstellation = (constellationNodes || []).length >= 2;
   if (hasConstellation) {
     const cover = el("canvas", { class: "constellation-cover" });
-    app.appendChild(cover);
+    const coverFrame = el("div", { class: "constellation-frame" }, [cover]);
+    app.appendChild(coverFrame);
     mountConstellationCanvas(cover, constellationNodes);
   }
 

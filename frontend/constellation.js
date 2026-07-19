@@ -32,6 +32,52 @@ const THEME_COLORS = {
   unsorted: "#8a8894",
 };
 
+// --signal itself — reserved here for the one thing it means everywhere
+// else in this product (a signal/annotation accent, "used with
+// restraint," never a stand-in for content color): the ring around a
+// work marks that *you wrote about it*, which is a fact about your own
+// voice, not about which nook it's in. Theme color stays on the dot fill.
+const SIGNAL_COLOR = "#d98a3d";
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// A real star chart connects a handful of stars into a shape — it doesn't
+// draw a line between every possible pair. Greedy nearest-neighbor chain
+// through a nook's own works gives the same "connect the dots into one
+// legible line" reading instead of the dense hairball a full mesh drew
+// (O(n²) edges for an n-work nook, illegible past a handful of works).
+function nearestNeighborChain(group) {
+  if (group.length < 2) return [];
+  const remaining = new Set(group);
+  const first = group[0];
+  remaining.delete(first);
+  const order = [first];
+  while (remaining.size > 0) {
+    const last = order[order.length - 1];
+    let best = null;
+    let bestDist = Infinity;
+    for (const cand of remaining) {
+      const dx = last.x - cand.x;
+      const dy = last.y - cand.y;
+      const d = dx * dx + dy * dy;
+      if (d < bestDist) {
+        bestDist = d;
+        best = cand;
+      }
+    }
+    remaining.delete(best);
+    order.push(best);
+  }
+  const edges = [];
+  for (let i = 0; i < order.length - 1; i++) edges.push([order[i], order[i + 1]]);
+  return edges;
+}
+
 const PROVIDERS = ["tmdb-movie", "tmdb-tv", "musicbrainz", "open-library"];
 
 function hashString(s) {
@@ -150,10 +196,11 @@ function computeConstellationLayout(nodes, width, height) {
   for (const theme of themesPresent) {
     anchors[theme] = themeAnchor(theme, cx, cy, anchorRadius);
   }
-  return { items, anchors };
+  return { items, anchors, cx, cy, anchorRadius };
 }
 
-function renderConstellationCanvas(canvas, items, anchors) {
+function renderConstellationCanvas(canvas, layout) {
+  const { items, anchors, cx, cy, anchorRadius } = layout;
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width * dpr;
@@ -162,22 +209,38 @@ function renderConstellationCanvas(canvas, items, anchors) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, rect.width, rect.height);
 
+  // The orbit itself: a faint guide circle at the same radius every
+  // anchor sits on — a compass rose, not a chart axis, and a quiet nod to
+  // the product's own name (things held at a fixed distance from a
+  // center). Drawn first, under everything else.
+  ctx.strokeStyle = "rgba(43, 43, 51, 0.7)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 5]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, anchorRadius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
   // Region labels — only for themes actually present, so an account with
   // three nooks doesn't show five empty labels for moods it never touched.
   // Canvas fonts can't reference a CSS custom property — this has to be
   // the literal family name, unlike everywhere else this project sets
   // type via var(--font-data).
   ctx.font = "11px 'Space Mono', monospace";
-  ctx.fillStyle = "rgba(138, 136, 148, 0.55)";
+  ctx.fillStyle = "rgba(138, 136, 148, 0.6)";
   ctx.textAlign = "center";
   for (const [theme, anchor] of Object.entries(anchors)) {
     ctx.fillText(theme, anchor.x, anchor.y);
   }
 
   // Nook edges: a real, deliberate grouping here (not inferred from tag
-  // overlap), so membership earns an actual drawn connection.
-  ctx.strokeStyle = "rgba(233, 229, 222, 0.09)";
-  ctx.lineWidth = 1;
+  // overlap), so membership earns an actual drawn connection — but a
+  // *chart* connection, one clean line through the group (nearest-
+  // neighbor chain), not a line between every possible pair. A full mesh
+  // on an n-work nook draws O(n²) crossing lines and reads as a hairball,
+  // not a constellation; a real star chart never does that either. Each
+  // nook's own lines take its own theme color, faint — the region's
+  // identity extends to its connections, not just its dots.
   const byNook = new Map();
   for (const it of items) {
     if (!it.node.nookUri) continue;
@@ -185,26 +248,27 @@ function renderConstellationCanvas(canvas, items, anchors) {
     byNook.get(it.node.nookUri).push(it);
   }
   for (const group of byNook.values()) {
-    for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        ctx.beginPath();
-        ctx.moveTo(group[i].x, group[i].y);
-        ctx.lineTo(group[j].x, group[j].y);
-        ctx.stroke();
-      }
+    const color = THEME_COLORS[group[0].theme] || THEME_COLORS.unsorted;
+    ctx.strokeStyle = hexToRgba(color, 0.4);
+    ctx.lineWidth = 1;
+    for (const [a, b] of nearestNeighborChain(group)) {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
     }
   }
 
   for (const it of items) {
     const color = THEME_COLORS[it.theme] || THEME_COLORS.unsorted;
-    ctx.globalAlpha = it.node.nookUri ? 0.92 : 0.42; // Unsorted reads fainter — not yet decided, not hidden
+    ctx.globalAlpha = it.node.nookUri ? 0.88 : 0.4; // Unsorted reads fainter — not yet decided, not hidden
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(it.x, it.y, it.r, 0, Math.PI * 2);
     ctx.fill();
     if (it.node.noteCount > 0) {
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = SIGNAL_COLOR;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(it.x, it.y, it.r + 3, 0, Math.PI * 2);
@@ -360,28 +424,31 @@ async function fetchConstellationNodes(handle) {
 // in the document with its CSS applied.
 function mountConstellationCanvas(canvas, nodes) {
   const rect = canvas.getBoundingClientRect();
-  const { items, anchors } = computeConstellationLayout(nodes, rect.width, rect.height || rect.width * 0.4);
-  renderConstellationCanvas(canvas, items, anchors);
+  const layout = computeConstellationLayout(nodes, rect.width, rect.height || rect.width * 0.4);
+  renderConstellationCanvas(canvas, layout);
 
   const tooltip = el("div", { class: "constellation-tooltip mono", style: "display:none" });
   document.body.appendChild(tooltip);
-  attachConstellationInteractivity(canvas, items, tooltip);
+  attachConstellationInteractivity(canvas, layout.items, tooltip);
 }
 
 // The archetype's own "symbol" — that person's real layout, recomputed at
 // a small fixed size, same mechanic as the full canvas. Same appended-
-// first requirement as above.
+// first requirement as above. Labels are skipped (region names would be
+// illegible at this size) by clearing anchors after layout, not by a
+// separate rendering path.
 function mountArchetypeSymbol(canvas, nodes) {
-  const { items } = computeConstellationLayout(nodes, 120, 120);
-  renderConstellationCanvas(canvas, items, {});
+  const layout = computeConstellationLayout(nodes, 120, 120);
+  renderConstellationCanvas(canvas, { ...layout, anchors: {} });
 }
 
 function buildArchetypeCard(nodes) {
   const archetype = computeArchetype(nodes);
   if (!archetype) return null;
   const symbolCanvas = el("canvas", { class: "archetype-symbol" });
+  const symbolFrame = el("div", { class: "archetype-symbol-frame" }, [symbolCanvas]);
   const card = el("div", { class: "archetype-card" }, [
-    symbolCanvas,
+    symbolFrame,
     el("div", { class: "archetype-body" }, [
       el("h3", { class: "archetype-title", text: archetype.title }),
       el("p", { class: "archetype-voice", text: archetype.voice }),
