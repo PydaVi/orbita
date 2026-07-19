@@ -281,15 +281,31 @@ function renderConstellationCanvas(canvas, layout, compareLayout) {
     }
   }
 
+  // A flat filled circle reads as a data-viz bubble; an actual photograph
+  // of a star always shows some bloom around the point of light. A soft
+  // radial glow underneath a small crisp core gets both at once —
+  // atmosphere and precision together, not one traded for the other.
   for (const it of items) {
     const color = THEME_COLORS[it.theme] || THEME_COLORS.unsorted;
-    ctx.globalAlpha = it.node.nookUri ? 0.88 : 0.4; // Unsorted reads fainter — not yet decided, not hidden
+    const presence = it.node.nookUri ? 0.9 : 0.4; // Unsorted reads fainter — not yet decided, not hidden
+
+    const glowRadius = it.r * 3.4;
+    const glow = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, glowRadius);
+    glow.addColorStop(0, hexToRgba(color, presence * 0.5));
+    glow.addColorStop(1, hexToRgba(color, 0));
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(it.x, it.y, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = presence;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(it.x, it.y, it.r, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
+
     if (it.node.noteCount > 0) {
-      ctx.globalAlpha = 1;
       ctx.strokeStyle = SIGNAL_COLOR;
       ctx.lineWidth = 1.5;
       ctx.beginPath();

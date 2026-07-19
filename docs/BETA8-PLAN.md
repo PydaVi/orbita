@@ -52,6 +52,17 @@ Raised directly after the redesign: the entire reason a shelf's constellation an
 
 **Built:** visiting someone else's profile while signed in now fetches the viewer's *own* constellation graph too (skipped entirely on your own profile — nothing to compare against) and renders it as a ghosted overlay on the same canvas — hollow rings only, no connecting lines, no labels, so it never competes with the profile actually being viewed for attention. Because both shapes are computed at the same canvas dimensions and theme anchors are a pure function of (theme, canvas size), the two shapes' regions land in exactly the same places — where both people have real presence in the same theme, the hollow rings and the solid dots visually cluster together, which is the affinity itself, shown, not summarized into a number. A small caption ("hollow rings — your own shelf, overlaid") names what's on screen rather than leaving it to be guessed, matching this product's own standing rule that a person should always know why they're seeing what they're seeing.
 
+## Third look: still didn't feel like this product, even after the redesign
+
+The corner-crosshair box from the second pass borrowed the poster's own framing wholesale — reasonable-sounding, but wrong on reflection: a poster earns a hard rectangular frame because it's a bounded, physical object. A sky is the opposite of that. Boxing it the same way read as "specimen in a container," which is exactly the wrong feeling for something meant to feel boundless — flagged directly, with a nudge toward researching the concept properly rather than iterating on the same box.
+
+Looked at H.A. Rey's *The Stars: A New Way to See Them* (1952) for how an actual constellation earns its lines: a small number of deliberate connections forming one legible shape, never a dense mesh — reinforces the nearest-neighbor-chain decision from the second pass rather than replacing it, but confirms restraint is the right instinct, not more structure.
+
+**Rebuilt again:**
+- No frame, no border, no background of its own. The canvas (`.constellation-cover`, `.archetype-symbol`) sits directly on the page's own `--bg`, transparent. A CSS radial `mask-image` fades its own content to nothing near the edges instead of cutting it off with a hard boundary — an actual horizon, not a box with a line around it.
+- Dots got a real glow: a soft radial-gradient bloom underneath a small precise core circle, the way a photograph of an actual star always shows some halo around the point of light — a flat filled circle reads as a data-viz bubble, not a star.
+- The orbit guide circle and nearest-neighbor connections from the previous pass are unchanged — those were never the problem, the box around all of it was.
+
 ## Incidental fix: DID-shaped path segments
 
 Found while testing the comparison feature: a client-side redirect (or a pasted/bookmarked link) landing a DID in the `/profile/{handle}` slot instead of a real handle 404'd outright — `resolveHandleToDID` only ever tried `syntax.ParseHandle`, which correctly rejects a DID string, and there was no fallback. Fixed by trying `syntax.ParseDID` first and returning it directly when it parses — a DID is already a fully resolved identifier, every other route on this site already knows how to work with one, and requiring specifically an unresolved handle bought nothing.

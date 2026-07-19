@@ -339,49 +339,29 @@ li.feed-card:last-child {
   color: var(--text);
 }
 
-/* ---- Beta 8: the constellation — a visual signature built from a
-   person's real nooks and themes (see constellation.js), not a generic
-   scatter chart. Sits where a cover photo would traditionally go:
-   full-width, wide and shallow like a banner, above the identity block.
-   Fixed aspect ratio so the force layout (computed once, in JS, at the
-   actual rendered size) matches what's drawn — no CSS scaling of an
-   already-positioned canvas. The frame around it is the exact same
-   corner-crosshair instrument framing every poster on this site already
-   uses (.poster-wrap) — this is an observed object too, just a bigger
-   and stranger one, not a different visual language. ---- */
+/* ---- Beta 8 (re-thought again, 2026-07-19): the constellation — a
+   visual signature built from a person's real nooks and themes (see
+   constellation.js), not a generic scatter chart. A poster earns a hard
+   rectangular frame with corner crosshairs because it's a bounded,
+   physical object — a sky is the opposite of that, and boxing it the
+   same way read as exactly the "specimen in a container" feeling that
+   was wrong here. No border, no frame, no background of its own: the
+   canvas sits directly on the page's own --bg, and a soft radial mask
+   fades its own edges to nothing rather than cutting them off — a real
+   horizon, not a hard stop. Sits where a cover photo would traditionally
+   go: full-width, wide and shallow like a banner, above the identity
+   block. Fixed aspect ratio so the force layout (computed once, in JS, at
+   the actual rendered size) matches what's drawn. ---- */
 .constellation-frame {
-  position: relative;
   margin-bottom: 2rem;
-}
-.constellation-frame::before,
-.constellation-frame::after {
-  content: "";
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--signal);
-  opacity: 0.9;
-  z-index: 1;
-  pointer-events: none;
-}
-.constellation-frame::before {
-  top: 8px;
-  left: 8px;
-  border-right: none;
-  border-bottom: none;
-}
-.constellation-frame::after {
-  bottom: 8px;
-  right: 8px;
-  border-left: none;
-  border-top: none;
 }
 .constellation-cover {
   display: block;
   width: 100%;
   aspect-ratio: 3 / 1;
-  background: var(--surface);
-  border: 1px solid var(--rule);
+  background: transparent;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 60%, transparent 96%);
+  mask-image: radial-gradient(ellipse at center, black 60%, transparent 96%);
 }
 @media (max-width: 640px) {
   .constellation-cover {
@@ -407,9 +387,8 @@ li.feed-card:last-child {
 
 /* ---- the archetype: a geometric signature derived from the same shape,
    not a separate widget bolted beside it — the symbol is that person's
-   own real layout, recomputed at a small fixed size, same mechanic as the
-   full canvas above, with the same crosshair framing scaled down (same
-   pattern .shelf-grid-item uses for a poster in a grid). ---- */
+   own real layout, recomputed small, same borderless/vignette treatment
+   as the full sky above: the same shape, not a boxed-up version of it. ---- */
 .archetype-card {
   display: flex;
   gap: 1.25rem;
@@ -419,38 +398,15 @@ li.feed-card:last-child {
   border-top: 1px solid var(--rule);
 }
 .archetype-symbol-frame {
-  position: relative;
   flex-shrink: 0;
-}
-.archetype-symbol-frame::before,
-.archetype-symbol-frame::after {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border: 1px solid var(--signal);
-  opacity: 0.9;
-  z-index: 1;
-  pointer-events: none;
-}
-.archetype-symbol-frame::before {
-  top: 4px;
-  left: 4px;
-  border-right: none;
-  border-bottom: none;
-}
-.archetype-symbol-frame::after {
-  bottom: 4px;
-  right: 4px;
-  border-left: none;
-  border-top: none;
 }
 .archetype-symbol {
   display: block;
   width: 120px;
   height: 120px;
-  background: var(--surface);
-  border: 1px solid var(--rule);
+  background: transparent;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 55%, transparent 96%);
+  mask-image: radial-gradient(ellipse at center, black 55%, transparent 96%);
 }
 .archetype-title {
   font-family: var(--font-title);
