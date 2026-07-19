@@ -537,14 +537,36 @@ ul.plain li.empty,
   border-top: none;
 }
 
-/* ---- drag-and-drop organizing: native HTML5 DnD, no library. A poster
-   being dragged fades; drop targets don't need a visual hover state of
-   their own since the browser's own drag cursor already signals it. ---- */
+/* ---- drag-and-drop organizing: native HTML5 DnD, no library, but with
+   two additions so it actually reads as direct manipulation instead of
+   "nothing happens until you let go" — see shelf.js's own opening note.
+   The card left behind at the origin fades to a faint placeholder while a
+   full-opacity clone (.drag-ghost) tracks the cursor; siblings that have
+   to shift out of the way animate there (FLIP, in shelf.js) rather than
+   snapping. ---- */
 .draggable-work {
   cursor: grab;
 }
 .draggable-work.dragging {
-  opacity: 0.4;
+  opacity: 0.35;
+}
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0.96;
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+}
+.drag-ghost .poster-remove {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drag-ghost {
+    box-shadow: none;
+  }
 }
 .poster-remove {
   position: absolute;
@@ -568,6 +590,37 @@ ul.plain li.empty,
 .poster-remove:hover {
   color: var(--signal);
   border-color: var(--signal);
+}
+
+/* ---- the "arrived" moment: plays once, the instant a work's card is
+   created inside a nook it just landed in (justLanded in shelf.js marks
+   exactly one card for exactly one render, then clears itself so it never
+   replays). --frame-accent already carries each theme's own duotone
+   highlight color (set higher up, per .nook-warm/.nook-riso/etc.), so the
+   ring is theme-colored for free — the same color language the nook's own
+   top rule and corner block already use, not a new invented accent. ---- */
+@keyframes nook-landed {
+  0% {
+    transform: scale(0.86);
+    opacity: 0;
+    box-shadow: 0 0 0 6px var(--frame-accent, var(--signal));
+  }
+  55% {
+    opacity: 1;
+    box-shadow: 0 0 0 2px var(--frame-accent, var(--signal));
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.just-landed {
+  animation: nook-landed 0.5s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .just-landed {
+    animation: none;
+  }
 }
 
 /* ---- a nook's own theme reaches every poster inside it two ways: the

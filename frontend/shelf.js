@@ -6,6 +6,21 @@
 // manipulation, not a form — drag a poster into a nook, drag within a nook
 // to reorder, nooks on top, whatever's still unsorted underneath. Native
 // HTML5 drag-and-drop, no library.
+//
+// Beta 7 (redone again, 2026-07-19): the native drag image alone reads as
+// dead — no card visibly follows the cursor, nothing shifts out of the way
+// until you release the mouse. Rebuilt on top of the same native
+// drag-and-drop (still no library) with two additions: a custom element
+// that tracks the cursor 1:1 in place of the browser's own drag image
+// (attachDragGhost/positionDragGhost/detachDragGhost below), and a live
+// reflow — the dragged card's real DOM node is moved into position on
+// every dragover, with FLIP (First-Last-Invert-Play) animating whichever
+// siblings had to shift, so the grid visibly reorganizes before you let
+// go, the way dragging a file in a folder or a track in a Spotify
+// playlist does. dataTransfer's payload is unreadable during dragover by
+// design (a cross-origin-drag security restriction) — everything here
+// tracks the drag through a module-level dragState object instead, which
+// works because source and target are always the same page.
 
 const NOOK_THEMES = ["default", "warm", "cool", "midnight", "riso", "indigo", "manifesto"];
 
@@ -108,13 +123,204 @@ async function saveNook(nook) {
   }
 }
 
+// ---- custom drag ghost: a real element that tracks the cursor, replacing
+// the browser's own (barely visible, unstyled) drag image. ----
+
+let dragGhostEl = null;
+let dragGhostOffset = { x: 0, y: 0 };
+const blankDragImage = document.createElement("canvas");
+blankDragImage.width = blankDragImage.height = 1;
+
+function attachDragGhost(e, sourceEl) {
+  e.dataTransfer.setDragImage(blankDragImage, 0, 0);
+
+  const rect = sourceEl.getBoundingClientRect();
+  const ghost = sourceEl.cloneNode(true);
+  ghost.classList.add("drag-ghost");
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  dragGhostOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  document.body.appendChild(ghost);
+  dragGhostEl = ghost;
+  positionDragGhost(e.clientX, e.clientY);
+}
+
+function positionDragGhost(x, y) {
+  if (!dragGhostEl) return;
+  const tx = x - dragGhostOffset.x;
+  const ty = y - dragGhostOffset.y;
+  dragGhostEl.style.transform = `translate(${tx}px, ${ty}px) scale(1.03) rotate(-1.2deg)`;
+}
+
+function detachDragGhost() {
+  if (dragGhostEl) {
+    dragGhostEl.remove();
+    dragGhostEl = null;
+  }
+}
+
+document.addEventListener("dragover", (e) => positionDragGhost(e.clientX, e.clientY));
+
+// ---- FLIP: snapshot a grid's children positions before a DOM mutation,
+// then animate each one from its old position to its new one — this is
+// the actual mechanism behind "cards visibly sliding out of the way." ----
+
+function flipSnapshot(container) {
+  const before = new Map();
+  for (const child of container.children) {
+    before.set(child, child.getBoundingClientRect());
+  }
+  return before;
+}
+
+function flipPlay(container, before) {
+  for (const child of container.children) {
+    const b = before.get(child);
+    if (!b) continue;
+    const a = child.getBoundingClientRect();
+    const dx = b.left - a.left;
+    const dy = b.top - a.top;
+    if (!dx && !dy) continue;
+    child.style.transition = "none";
+    child.style.transform = `translate(${dx}px, ${dy}px)`;
+    child.getBoundingClientRect(); // force reflow so the line above takes effect before the next one
+    requestAnimationFrame(() => {
+      child.style.transition = "transform 0.18s ease";
+      child.style.transform = "";
+    });
+  }
+}
+
+// Nearest-cell heuristic for a multi-column grid: find whichever existing
+// card's center is geometrically closest to the cursor, then insert before
+// or after it depending on which side of its center the cursor is on.
+function getDragAfterElement(grid, dragged, x, y) {
+  const cells = [...grid.querySelectorAll(".shelf-grid-item")].filter((c) => c !== dragged);
+  let best = null;
+  let bestDist = Infinity;
+  for (const cell of cells) {
+    const box = cell.getBoundingClientRect();
+    const cx = box.left + box.width / 2;
+    const cy = box.top + box.height / 2;
+    const dist = (x - cx) ** 2 + (y - cy) ** 2;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = { cell, cx };
+    }
+  }
+  if (!best) return null;
+  return x < best.cx ? best.cell : best.cell.nextElementSibling;
+}
+
+// The one piece of state a drag needs across events — dataTransfer's own
+// payload can't be read until drop, so everything live (the reflow, the
+// ghost, the capacity check) reads this instead.
+let dragState = null; // { key, fromNookUri }
+
+// justLanded marks the one work that should play the themed "arrived"
+// animation on its very next render — consumed once so it never replays.
+let justLanded = null; // { key, nookUri }
+
+function attachSortableGrid(grid, state, rerender) {
+  grid.addEventListener("dragover", (e) => {
+    if (!dragState) return;
+    e.preventDefault();
+
+    const dragged = grid.querySelector(`[data-work-key="${cssEscape(dragState.key)}"]`) || document.querySelector(`[data-work-key="${cssEscape(dragState.key)}"]`);
+    if (!dragged) return;
+
+    const nookUri = grid.dataset.nookUri || null;
+    if (nookUri && dragged.parentElement !== grid) {
+      const count = grid.querySelectorAll(".shelf-grid-item").length;
+      if (count >= NOOK_WORKS_LIMIT) return; // full — this grid just isn't a valid target
+    }
+
+    const after = getDragAfterElement(grid, dragged, e.clientX, e.clientY);
+    if (after === dragged) return;
+    if (dragged.parentElement === grid && dragged.nextElementSibling === after) return;
+
+    const emptyMsg = grid.querySelector(".empty");
+    if (emptyMsg) emptyMsg.remove();
+
+    const sourceGrid = dragged.parentElement;
+    const grids = sourceGrid && sourceGrid !== grid ? [grid, sourceGrid] : [grid];
+    const snaps = grids.map((g) => [g, flipSnapshot(g)]);
+
+    if (after) grid.insertBefore(dragged, after);
+    else grid.appendChild(dragged);
+
+    for (const [g, snap] of snaps) flipPlay(g, snap);
+  });
+
+  grid.addEventListener("drop", (e) => {
+    e.preventDefault();
+    commitDrag(state, rerender);
+  });
+}
+
+function cssEscape(s) {
+  return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\]/g, "\\$&");
+}
+
+// Reads back whatever the live reflow already arranged (the DOM is the
+// source of truth by the time drop fires) and persists it — no separate
+// "insert at index N" math needed, since the cards are already exactly
+// where they visually ended up.
+async function commitDrag(state, rerender) {
+  if (!dragState) return;
+  const { key, fromNookUri } = dragState;
+  dragState = null;
+
+  const dragged = document.querySelector(`[data-work-key="${cssEscape(key)}"]`);
+  detachDragGhost();
+  if (!dragged) {
+    rerender();
+    return;
+  }
+
+  const destGrid = dragged.closest(".shelf-grid");
+  const destNookUri = destGrid ? destGrid.dataset.nookUri || null : null;
+
+  const worksByKey = new Map(state.items.map((it) => [workKey(it), it]));
+  const readGrid = (grid) =>
+    [...grid.querySelectorAll(".shelf-grid-item")]
+      .map((c) => worksByKey.get(c.dataset.workKey))
+      .filter(Boolean);
+
+  const toSave = [];
+  if (destNookUri) {
+    const nook = state.nooks.find((n) => n.uri === destNookUri);
+    if (nook) {
+      nook.works = readGrid(destGrid);
+      toSave.push(nook);
+    }
+  }
+  if (fromNookUri && fromNookUri !== destNookUri) {
+    const srcNook = state.nooks.find((n) => n.uri === fromNookUri);
+    const srcGrid = document.querySelector(`.nook[data-nook-uri="${cssEscape(fromNookUri)}"] .shelf-grid`);
+    if (srcNook && srcGrid) {
+      srcNook.works = readGrid(srcGrid);
+      toSave.push(srcNook);
+    }
+  }
+
+  if (destNookUri && destNookUri !== fromNookUri) {
+    justLanded = { key, nookUri: destNookUri };
+  }
+
+  for (const nook of toSave) await saveNook(nook);
+  rerender();
+}
+
 // A poster is the one draggable unit everywhere it appears — in a nook or
-// in the unsorted grid. Dropping ON one inserts before/after it (whichever
-// half of it you dropped on); dropping on empty space in a container
-// appends at the end (handled by the container's own drop listener, which
-// only fires when a child's listener didn't already stop it).
-function renderPoster(work, { fromNookUri, onMove, onRemove }) {
-  const cell = el("div", { class: "shelf-grid-item draggable-work" });
+// in the unsorted grid.
+function renderPoster(work, { fromNookUri, onRemove }) {
+  const key = workKey(work);
+  const cell = el("div", { class: "shelf-grid-item draggable-work", "data-work-key": key });
+  if (justLanded && justLanded.key === key && justLanded.nookUri === (fromNookUri || null)) {
+    cell.classList.add("just-landed");
+    justLanded = null;
+  }
   cell.setAttribute("draggable", "true");
   cell.title = work.title;
   if (work.poster) {
@@ -131,34 +337,23 @@ function renderPoster(work, { fromNookUri, onMove, onRemove }) {
 
   cell.addEventListener("dragstart", (e) => {
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("application/json", JSON.stringify({ provider: work.provider, id: work.id, fromNook: fromNookUri || null }));
-    cell.classList.add("dragging");
+    e.dataTransfer.setData("application/json", JSON.stringify({ provider: work.provider, id: work.id }));
+    dragState = { key, fromNookUri: fromNookUri || null };
+    attachDragGhost(e, cell);
+    requestAnimationFrame(() => cell.classList.add("dragging"));
   });
-  cell.addEventListener("dragend", () => cell.classList.remove("dragging"));
-  cell.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
-  cell.addEventListener("drop", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const data = JSON.parse(e.dataTransfer.getData("application/json"));
-    const rect = cell.getBoundingClientRect();
-    const before = e.clientX - rect.left < rect.width / 2;
-    onMove(data, work, before);
+  cell.addEventListener("dragend", () => {
+    cell.classList.remove("dragging");
+    detachDragGhost();
+    // If a real drop already ran, commitDrag already cleared dragState —
+    // this only fires when the card was released outside any valid grid,
+    // and just needs the last live-preview reflow discarded.
+    if (dragState) {
+      dragState = null;
+      cell.dispatchEvent(new CustomEvent("shelf:discard-drag", { bubbles: true }));
+    }
   });
   return cell;
-}
-
-function makeDropContainer(grid, onDropEmpty) {
-  grid.addEventListener("dragover", (e) => e.preventDefault());
-  grid.addEventListener("drop", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const data = JSON.parse(e.dataTransfer.getData("application/json"));
-    if (data.nookReorder) return; // not for this drop zone — see reorderNooksArea
-    onDropEmpty(data);
-  });
 }
 
 // Repositioning a nook among its siblings: gapped integer positions
@@ -221,6 +416,7 @@ function makeNookReorderArea(container, getBoxes, onReorder) {
 
 function renderOrganizer(root, state) {
   root.innerHTML = "";
+  root.addEventListener("shelf:discard-drag", () => renderOrganizer(root, state), { once: true });
 
   const rerender = () => renderOrganizer(root, state);
 
@@ -246,55 +442,10 @@ function renderOrganizer(root, state) {
     }
   };
 
-  // The one place a dragged poster actually gets moved: pulled out of
-  // wherever it came from, inserted at the target position (or appended,
-  // if dropped on empty space), then whichever nook(s) changed get saved.
-  const moveWork = async (data, targetNookUri, beforeWork, before) => {
-    const key = `${data.provider}/${data.id}`;
-    const touched = new Set();
-
-    if (targetNookUri) {
-      const target = state.nooks.find((n) => n.uri === targetNookUri);
-      if (target && target.works.length >= NOOK_WORKS_LIMIT && !target.works.some((w) => workKey(w) === key)) {
-        alert(`a nook holds at most ${NOOK_WORKS_LIMIT} works — it's meant to stay a curated gesture, not the whole shelf again`);
-        return;
-      }
-    }
-
-    if (data.fromNook) {
-      const src = state.nooks.find((n) => n.uri === data.fromNook);
-      if (src) {
-        src.works = src.works.filter((w) => workKey(w) !== key);
-        touched.add(src.uri);
-      }
-    }
-
-    if (targetNookUri) {
-      const target = state.nooks.find((n) => n.uri === targetNookUri);
-      if (target) {
-        const source = state.items.find((it) => workKey(it) === key) || { ...data, title: data.id };
-        const entry = { provider: source.provider, id: source.id, title: source.title, poster: source.poster };
-        if (beforeWork) {
-          const idx = target.works.findIndex((w) => workKey(w) === workKey(beforeWork));
-          target.works.splice(idx < 0 ? target.works.length : before ? idx : idx + 1, 0, entry);
-        } else {
-          target.works.push(entry);
-        }
-        touched.add(target.uri);
-      }
-    }
-
-    for (const uri of touched) {
-      const nook = state.nooks.find((n) => n.uri === uri);
-      if (nook) await saveNook(nook);
-    }
-    rerender();
-  };
-
   // ---- nooks, on top ----
   const nooksArea = el("div", { class: "nooks-area" });
   for (const nook of state.nooks) {
-    nooksArea.appendChild(renderNookBox(nook, state, { moveWork, removeFromShelf, rerender }));
+    nooksArea.appendChild(renderNookBox(nook, state, { removeFromShelf, rerender }));
   }
   nooksArea.appendChild(renderNewNookTrigger(state, rerender));
   makeNookReorderArea(
@@ -314,9 +465,9 @@ function renderOrganizer(root, state) {
 
   const unsortedSection = el("section", {}, [el("h2", { text: `Unsorted (${unsorted.length})` })]);
   const unsortedGrid = el("div", { class: "shelf-grid" });
-  makeDropContainer(unsortedGrid, (data) => moveWork(data, null, null, false));
+  attachSortableGrid(unsortedGrid, state, rerender);
   for (const item of unsorted) {
-    unsortedGrid.appendChild(renderPoster(item, { fromNookUri: null, onMove: (data, w, before) => moveWork(data, null, w, before), onRemove: removeFromShelf }));
+    unsortedGrid.appendChild(renderPoster(item, { fromNookUri: null, onRemove: removeFromShelf }));
   }
   if (unsorted.length === 0) {
     unsortedGrid.appendChild(el("p", { class: "empty", text: "everything is organized into a nook" }));
@@ -325,26 +476,22 @@ function renderOrganizer(root, state) {
   root.appendChild(unsortedSection);
 }
 
-function renderNookBox(nook, state, { moveWork, removeFromShelf, rerender }) {
+function renderNookBox(nook, state, { removeFromShelf, rerender }) {
   const title = el("h2", { text: nook.name, class: "nook-title", draggable: "true" });
   title.addEventListener("dragstart", (e) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("application/json", JSON.stringify({ nookReorder: true, uri: nook.uri }));
+    attachDragGhost(e, title);
   });
+  title.addEventListener("dragend", () => detachDragGhost());
 
   const box = el("div", { class: `nook nook-${nook.theme}`, "data-nook-uri": nook.uri }, [title]);
   if (nook.description) box.appendChild(el("p", { class: "mono nook-description", text: nook.description }));
 
-  const grid = el("div", { class: "shelf-grid" });
-  makeDropContainer(grid, (data) => moveWork(data, nook.uri, null, false));
+  const grid = el("div", { class: "shelf-grid", "data-nook-uri": nook.uri });
+  attachSortableGrid(grid, state, rerender);
   for (const work of nook.works) {
-    grid.appendChild(
-      renderPoster(work, {
-        fromNookUri: nook.uri,
-        onMove: (data, w, before) => moveWork(data, nook.uri, w, before),
-        onRemove: removeFromShelf,
-      })
-    );
+    grid.appendChild(renderPoster(work, { fromNookUri: nook.uri, onRemove: removeFromShelf }));
   }
   if (nook.works.length === 0) {
     grid.appendChild(el("p", { class: "empty", text: "drag works here" }));
