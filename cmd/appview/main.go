@@ -42,6 +42,14 @@ func main() {
 	serveFrontend("/nook.js", "nook.js")
 	serveFrontend("/profile-shelf.js", "profile-shelf.js")
 	serveFrontend("/constellation.js", "constellation.js")
+	serveFrontend("/saved.js", "saved.js")
+	serveFrontend("/placeholder.js", "placeholder.js")
+	serveFrontend("/saved", "saved.html")
+	// Messages and Settings are named in the sidebar honestly, not hidden
+	// until they're real — each renders a short explanation instead of a
+	// dead link or a control that would silently do nothing.
+	serveFrontend("/messages", "placeholder.html")
+	serveFrontend("/settings", "placeholder.html")
 
 	// Beta 4: the basic site layout — Feed and Profile exist as real pages
 	// (with a real nav to reach them). Beta 5: /profile/{handle} shows any
@@ -72,6 +80,7 @@ func main() {
 	setupNookPage(mux, db)
 	setupResync(mux, db)
 	setupConstellation(mux, db)
+	setupSaved(mux, db)
 	setupAPI(mux, db)
 
 	addr := ":8092" // 8000 is already taken by comum's api-gateway, running on the same machine

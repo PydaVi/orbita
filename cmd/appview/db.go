@@ -108,6 +108,9 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(identityCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating identity_cache schema: %w", err)
 	}
+	if _, err := db.Exec(savedNotesSchema); err != nil {
+		return nil, fmt.Errorf("creating saved_notes schema: %w", err)
+	}
 	return db, nil
 }
 

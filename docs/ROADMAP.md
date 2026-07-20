@@ -198,11 +198,32 @@ planning conversation on its own before this beta gets scoped for real.
 
 **Problem:** loose ends already named and deliberately deferred: update/delete
 for notes (only create is wired, same gap already named for shelf items),
-and `track`/`chapter` granularity for albums/books (the Lexicon allows it,
-nothing reads or writes it yet).
+and `track`/`chapter` granularity for albums/books once Beta 16 (below) gives
+them real resolution to build that granularity on top of.
 
 **Rough shape:** mostly mechanical extensions of patterns already
 established — lower risk and lower novelty than what's around it.
+
+## Beta 16 — real catalog support for books and albums
+
+**Problem:** flagged directly (2026-07-19), and more foundational than it
+first looked. `musicbrainz` and `open-library` are declared as valid
+`work.provider` values in the Lexicon since Beta 0, but `resolveWork`
+(`tmdb.go`) has no case for either — only `tmdb-movie`/`tmdb-tv` actually
+resolve to a title/poster/year. `GET /api/search` (`search.go`) only ever
+queries TMDB too. In practice this means a book or an album can't be found
+by search, and even shelved by a hand-typed provider/id it would only ever
+show as a raw, unresolved string — this product's own four-medium promise
+(série/filme/álbum/livro) only half holds today.
+
+**Rough shape:** a resolver for each — MusicBrainz's own API for
+`musicbrainz` (releases/recordings), Open Library's API for `open-library`
+(editions/works) — mirroring `fetchFromTMDB`'s existing shape (title,
+cover/poster URL, year, overview), plus extending search to query all three
+sources rather than just TMDB. Genuinely two different APIs with two
+different response shapes to learn, not a copy-paste of the TMDB resolver —
+likely the reason this got declared in the Lexicon early but never actually
+built.
 
 ## Not on this list yet
 

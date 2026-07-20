@@ -33,6 +33,19 @@ async function currentViewer() {
   }
 }
 
+// A page that renders notes fetches this once up front (not per-note) so
+// every save button on the page starts already in the right state — an
+// empty Set for a signed-out visitor, never an error that blocks the rest
+// of the page from rendering.
+async function fetchSavedURIs() {
+  try {
+    const uris = await fetchJSON("/api/saved/uris");
+    return new Set(uris);
+  } catch {
+    return new Set();
+  }
+}
+
 function rkeyOf(uri) {
   const parts = uri.split("/");
   return parts[parts.length - 1];
@@ -139,6 +152,17 @@ function repostIcon() {
   return wrap;
 }
 
+// Filled vs outline is the only state this needs — no count, matching how
+// repost already works here (attributed, never tallied).
+function saveIcon(filled) {
+  const wrap = document.createElement("span");
+  wrap.className = "action-icon";
+  wrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="${filled ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-5-7 5V4a1 1 0 0 1 1-1z"></path>
+  </svg>`;
+  return wrap;
+}
+
 // renderReplyItem is one level of nesting, read-only for this first pass —
 // no reply/RT button on a reply itself (see notes.go's own comment on
 // why: replying-to-a-reply is stored correctly at the data layer, it just
@@ -158,13 +182,17 @@ function renderReplyItem(rep) {
   ]);
 }
 
-// The RT + reply row under a note's text. No count anywhere — RT only
-// ever surfaces as "reposted by @handle" in someone's Following feed
-// (see api.go's buildFeedEntry), never a number. onReplyAdded gets the
-// newly created reply so the caller can render it into its own nested
-// list, since where that list lives differs between the work page and
-// the feed.
-function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
+// The RT + save + reply row under a note's text. No count anywhere — RT
+// only ever surfaces as "reposted by @handle" in someone's Following feed
+// (see api.go's buildFeedEntry), never a number, and save is deliberately
+// private (see saved.go) — nobody else ever sees whether or how many
+// people saved a note. onReplyAdded gets the newly created reply so the
+// caller can render it into its own nested list, since where that list
+// lives differs between the work page and the feed. savedURIs is a Set
+// the caller fetched once up front (GET /api/saved/uris) so this button
+// starts in the right state instead of flashing "unsaved" then correcting
+// itself after a request resolves.
+function noteActionRow(n, provider, id, season, episode, onReplyAdded, savedURIs) {
   const row = el("div", { class: "note-actions" });
 
   const rtBtn = el("button", { type: "button", class: "action-btn", "aria-label": "Repost", title: "Repost" }, [
@@ -186,6 +214,39 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
     }
   });
   row.appendChild(rtBtn);
+
+  const saveBtn = el("button", { type: "button", class: "action-btn", "aria-label": "Save", title: "Save" });
+  let isSaved = Boolean(savedURIs && savedURIs.has(n.uri));
+  const paintSaveBtn = () => {
+    saveBtn.innerHTML = "";
+    saveBtn.appendChild(saveIcon(isSaved));
+    saveBtn.title = isSaved ? "Saved" : "Save";
+    saveBtn.setAttribute("aria-label", isSaved ? "Saved" : "Save");
+    saveBtn.classList.toggle("saved", isSaved);
+  };
+  paintSaveBtn();
+  saveBtn.addEventListener("click", async () => {
+    saveBtn.disabled = true;
+    const goingTo = !isSaved;
+    try {
+      await fetchJSON(goingTo ? "/api/notes/save" : "/api/notes/unsave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uri: n.uri }),
+      });
+      isSaved = goingTo;
+      if (savedURIs) {
+        if (isSaved) savedURIs.add(n.uri);
+        else savedURIs.delete(n.uri);
+      }
+      paintSaveBtn();
+    } catch (err) {
+      alert(`failed to ${goingTo ? "save" : "unsave"}: ${err}`);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+  row.appendChild(saveBtn);
 
   const replyBtn = el("button", { type: "button", class: "action-btn", "aria-label": "Reply", title: "Reply" }, [
     replyIcon(),
@@ -227,6 +288,75 @@ function noteActionRow(n, provider, id, season, episode, onReplyAdded) {
   row.appendChild(replyBox);
 
   return row;
+}
+
+// Renders a list of feedNoteEntry-shaped notes (the feed, the "Saved"
+// page — anywhere the API hands back that exact shape) as feed cards.
+// Shared rather than duplicated since both pages render the identical
+// note shape the same way; savedURIs is passed straight through to each
+// note's own noteActionRow.
+function renderFeedList(content, notes, savedURIs) {
+  const list = el("ul", { class: "plain" });
+  for (const n of notes || []) {
+    const workLabel = n.season != null ? `${n.title} — S${n.season}E${n.episode}` : n.title;
+    const workHref =
+      n.season != null
+        ? `/works/${n.provider}/${n.id}/season/${n.season}/episode/${n.episode}`
+        : `/works/${n.provider}/${n.id}`;
+
+    const bodyChildren = [];
+    // Attribution, not a metric: who reposted this into your feed — never
+    // a count, just the one fact of who shared it.
+    if (n.repostedByHandle) {
+      bodyChildren.push(
+        el("p", { class: "mono repost-attribution", text: `🔁 reposted by @${displayHandle(n.repostedByHandle)}` })
+      );
+    }
+    bodyChildren.push(
+      el("div", { class: "note-byline" }, [
+        el("a", { href: `/profile/${n.handle}`, class: "note-byline" }, [
+          avatarEl(n.handle, n.avatarUrl),
+          el("span", { class: "mono", text: `@${displayHandle(n.handle)}` }),
+        ]),
+        el("span", { class: "mono", text: n.createdAt }),
+      ]),
+      el("a", { href: workHref, text: workLabel }),
+      el("p", { class: "note-text", text: n.text })
+    );
+
+    const repliesList = el("ul", { class: "plain replies" });
+    for (const rep of n.replies || []) {
+      repliesList.appendChild(renderReplyItem(rep));
+    }
+
+    const body = el("div", { class: "feed-card-body" }, bodyChildren);
+    body.appendChild(
+      noteActionRow(
+        n,
+        n.provider,
+        n.id,
+        n.season ?? null,
+        n.episode ?? null,
+        (created) => {
+          repliesList.appendChild(renderReplyItem(created));
+        },
+        savedURIs
+      )
+    );
+    body.appendChild(repliesList);
+
+    const children = [];
+    if (n.poster) {
+      children.push(el("div", { class: "feed-card-poster" }, [el("img", { src: n.poster, alt: "" })]));
+    }
+    children.push(body);
+
+    list.appendChild(el("li", { class: "feed-card" }, children));
+  }
+  if (!notes || notes.length === 0) {
+    list.appendChild(el("li", { class: "empty", text: "nothing here yet" }));
+  }
+  content.appendChild(list);
 }
 
 // Duotone: two flat ink colors mapped across each photo's own luminance
@@ -314,6 +444,9 @@ function renderShell(active) {
     navItem("Shelf", "/shelf", "shelf"),
     navItem("Feed", "/feed", "feed"),
     navItem("Profile", "/profile", "profile"),
+    navItem("Saved", "/saved", "saved"),
+    navItem("Messages", "/messages", "messages"),
+    navItem("Settings", "/settings", "settings"),
   ]);
 
   // A grounded top, not just nav items floating at the top of an

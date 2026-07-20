@@ -22,6 +22,8 @@ async function init() {
     return;
   }
 
+  const savedURIs = await fetchSavedURIs();
+
   const tabBar = el("div", { class: "tab-bar" });
   const content = el("div", {});
   app.appendChild(tabBar);
@@ -40,17 +42,17 @@ async function init() {
         if (active === t.key) return;
         active = t.key;
         renderTabBar();
-        loadTab(content, active);
+        loadTab(content, active, savedURIs);
       });
       tabBar.appendChild(btn);
     }
   };
 
   renderTabBar();
-  loadTab(content, active);
+  loadTab(content, active, savedURIs);
 }
 
-async function loadTab(content, tab) {
+async function loadTab(content, tab, savedURIs) {
   content.innerHTML = "";
 
   if (tab === "affinity") {
@@ -64,67 +66,12 @@ async function loadTab(content, tab) {
   try {
     const data = await fetchJSON(`/api/feed?tab=${tab}`);
     content.innerHTML = "";
-    renderFeedList(content, data.notes);
+    renderFeedList(content, data.notes, savedURIs);
   } catch (err) {
     content.innerHTML = "";
     content.appendChild(el("p", { text: `could not load this feed: ${err}` }));
   }
 }
 
-function renderFeedList(content, notes) {
-  const list = el("ul", { class: "plain" });
-  for (const n of notes || []) {
-    const workLabel = n.season != null ? `${n.title} — S${n.season}E${n.episode}` : n.title;
-    const workHref =
-      n.season != null
-        ? `/works/${n.provider}/${n.id}/season/${n.season}/episode/${n.episode}`
-        : `/works/${n.provider}/${n.id}`;
-
-    const bodyChildren = [];
-    // Attribution, not a metric: who reposted this into your feed — never
-    // a count, just the one fact of who shared it.
-    if (n.repostedByHandle) {
-      bodyChildren.push(
-        el("p", { class: "mono repost-attribution", text: `🔁 reposted by @${displayHandle(n.repostedByHandle)}` })
-      );
-    }
-    bodyChildren.push(
-      el("div", { class: "note-byline" }, [
-        el("a", { href: `/profile/${n.handle}`, class: "note-byline" }, [
-          avatarEl(n.handle, n.avatarUrl),
-          el("span", { class: "mono", text: `@${displayHandle(n.handle)}` }),
-        ]),
-        el("span", { class: "mono", text: n.createdAt }),
-      ]),
-      el("a", { href: workHref, text: workLabel }),
-      el("p", { class: "note-text", text: n.text })
-    );
-
-    const repliesList = el("ul", { class: "plain replies" });
-    for (const rep of n.replies || []) {
-      repliesList.appendChild(renderReplyItem(rep));
-    }
-
-    const body = el("div", { class: "feed-card-body" }, bodyChildren);
-    body.appendChild(
-      noteActionRow(n, n.provider, n.id, n.season ?? null, n.episode ?? null, (created) => {
-        repliesList.appendChild(renderReplyItem(created));
-      })
-    );
-    body.appendChild(repliesList);
-
-    const children = [];
-    if (n.poster) {
-      children.push(el("div", { class: "feed-card-poster" }, [el("img", { src: n.poster, alt: "" })]));
-    }
-    children.push(body);
-
-    list.appendChild(el("li", { class: "feed-card" }, children));
-  }
-  if (!notes || notes.length === 0) {
-    list.appendChild(el("li", { class: "empty", text: "nothing here yet" }));
-  }
-  content.appendChild(list);
-}
 
 init();

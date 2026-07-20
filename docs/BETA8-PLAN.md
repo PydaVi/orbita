@@ -85,3 +85,16 @@ Two structural fixes, not a visual reskin (this product's own type/color system 
 - Any persistence of the archetype (recomputed fresh on every profile load, same as earlier work's own choice — no confirm/hide UI, no stored history).
 - Genre/tag data — still doesn't exist in this catalog. If it's ever added, the anchor system here would likely want a fourth, richer axis alongside theme rather than replacing it, since theme's cross-profile comparability property depends specifically on it being a small curated vocabulary, which genre tags typically aren't.
 - Touch interaction for the canvas (hover/click assume a mouse) — same category of gap as the shelf's own drag-and-drop, flagged but deferred.
+
+## Unplanned, same session: the rest of the sidebar, and a real "Saved"
+
+Not part of the constellation work, but landed right after it while the sidebar was already open: the reference screenshot named three more menu items this site didn't have yet (Messages, Saved, Settings).
+
+- **Messages and Settings are honest placeholders**, not hidden or dead links. `frontend/placeholder.html`/`.js` renders a short, specific explanation of what's actually missing and why (for Messages: the same "can't just be a public repo record" question already open for Beta 14's direct messages) rather than a generic "coming soon."
+- **Saved is real**, not a placeholder, and deliberately **not** an AT Protocol record (`saved.go`) — every other collection this appview writes is meant to be public, that's the point of a repo on the network; a private bookmark list is the opposite kind of data, the same category of problem flagged for DMs, just with an obvious answer here: every real platform that ships a save/bookmark feature (Bluesky's own included) stores it privately, server-side. Lives only in this appview's own SQLite (`saved_notes` table) — a real, accepted limitation (it won't follow you to a different AppView the way your shelf does).
+  - `POST /api/notes/save` / `/unsave`, `GET /api/saved/uris` (cheap, just URIs, for painting a button's state) and `GET /api/saved` (full hydrated notes, for the `/saved` page itself).
+  - A save button (`saveIcon`, `common.js`) joined the existing repost/reply row on every note — filled vs outline, no count anywhere, matching how repost already works here (attributed or private, never tallied). `renderFeedList` moved from `feed.js` into `common.js` so `/saved` could reuse the exact same note-card rendering the feed already has, rather than a second copy of it.
+
+## Filed on the roadmap, not built yet
+
+Raised in passing: `musicbrainz` and `open-library` are declared valid providers in the Lexicon since Beta 0 but were never actually wired up — no resolver, no search. See [`ROADMAP.md`](ROADMAP.md)'s new Beta 16 for the real scope; books and albums don't resolve at all today, not just missing fine-grained track/chapter detail.

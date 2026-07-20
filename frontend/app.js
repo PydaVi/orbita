@@ -49,13 +49,18 @@ async function loadPage() {
 
   try {
     if (episodeParam) {
-      const data = await fetchJSON(
-        `/api/works/${provider}/${id}/season/${seasonParam}/episode/${episodeParam}`
-      );
-      renderEpisodePage(app, provider, id, data);
+      const [data, savedURIs] = await Promise.all([
+        fetchJSON(`/api/works/${provider}/${id}/season/${seasonParam}/episode/${episodeParam}`),
+        fetchSavedURIs(),
+      ]);
+      renderEpisodePage(app, provider, id, data, savedURIs);
     } else {
-      const [work, viewer] = await Promise.all([fetchJSON(`/api/works/${provider}/${id}`), currentViewer()]);
-      renderWorkPage(app, provider, id, work, viewer, seasonParam ? Number(seasonParam) : null);
+      const [work, viewer, savedURIs] = await Promise.all([
+        fetchJSON(`/api/works/${provider}/${id}`),
+        currentViewer(),
+        fetchSavedURIs(),
+      ]);
+      renderWorkPage(app, provider, id, work, viewer, seasonParam ? Number(seasonParam) : null, savedURIs);
     }
     scrollToHash();
   } catch (err) {
@@ -64,7 +69,7 @@ async function loadPage() {
   }
 }
 
-function renderWorkPage(app, provider, id, work, viewer, deepSeason) {
+function renderWorkPage(app, provider, id, work, viewer, deepSeason, savedURIs) {
   app.innerHTML = "";
 
   // Principle 1: the work comes before anything about who posted.
@@ -97,7 +102,7 @@ function renderWorkPage(app, provider, id, work, viewer, deepSeason) {
     renderSeasonsSection(app, provider, id, work.seasons, deepSeason);
   }
 
-  renderNotesSection(app, provider, id, work.notes, null, null, work.poster);
+  renderNotesSection(app, provider, id, work.notes, null, null, work.poster, savedURIs);
 }
 
 function renderAccountsSection(app, provider, id, accounts, viewer) {
@@ -257,7 +262,7 @@ function renderEpisodeLinks(provider, id, seasonData) {
   return list;
 }
 
-function renderEpisodePage(app, provider, id, data) {
+function renderEpisodePage(app, provider, id, data, savedURIs) {
   app.innerHTML = "";
 
   app.appendChild(
@@ -280,13 +285,13 @@ function renderEpisodePage(app, provider, id, data) {
   );
   app.appendChild(hero);
 
-  renderNotesSection(app, provider, id, data.notes, data.season, data.episode, data.stillUrl);
+  renderNotesSection(app, provider, id, data.notes, data.season, data.episode, data.stillUrl, savedURIs);
 }
 
 // mediaUrl is the work's poster for a work-level notes section, or that
 // episode's still for an episode-level one — shown beside each note so a
 // shared note carries the work with it, per principle 1.
-function renderNotesSection(container, provider, id, notes, season, episode, mediaUrl) {
+function renderNotesSection(container, provider, id, notes, season, episode, mediaUrl, savedURIs) {
   const label = season != null ? `Notes for S${season}E${episode}` : "Notes";
   const section = el("section", {}, [el("h2", { text: label })]);
   const list = el("ul", { class: "plain" });
@@ -315,9 +320,19 @@ function renderNotesSection(container, provider, id, notes, season, episode, med
     }
 
     const main = el("div", { class: "note-main" }, [byline, el("p", { class: "note-text", text: n.text })]);
-    main.appendChild(noteActionRow(n, provider, id, season, episode, (created) => {
-      repliesList.appendChild(renderReplyItem(created));
-    }));
+    main.appendChild(
+      noteActionRow(
+        n,
+        provider,
+        id,
+        season,
+        episode,
+        (created) => {
+          repliesList.appendChild(renderReplyItem(created));
+        },
+        savedURIs
+      )
+    );
     main.appendChild(repliesList);
 
     const children = [main];

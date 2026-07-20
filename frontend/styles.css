@@ -192,6 +192,7 @@ a:hover {
   gap: 0.15rem;
 }
 .nav-link {
+  position: relative;
   font-family: var(--font-body);
   font-size: 0.92rem;
   color: var(--text-muted);
@@ -207,6 +208,23 @@ a:hover {
 }
 .nav-link.active {
   color: var(--signal);
+}
+/* Same short amber signal line as .hero-rule, under the label instead of
+   a full-width underline — a hover/active state, not decoration. */
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.2rem;
+  width: 1.25rem;
+  height: 1px;
+  background: var(--signal);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.nav-link:hover::after,
+.nav-link.active::after {
+  opacity: 1;
 }
 
 @media (max-width: 800px) {
@@ -1048,6 +1066,9 @@ li.note.highlight {
 .action-btn:disabled {
   color: var(--signal);
   cursor: default;
+}
+.action-btn.saved {
+  color: var(--signal);
 }
 .action-icon svg {
   display: block;
