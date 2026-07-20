@@ -157,7 +157,7 @@ a:hover {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
   padding: clamp(1.5rem, 4vw, 3rem) 0 0;
   position: sticky;
   top: 1rem;
@@ -165,14 +165,45 @@ a:hover {
 .rightcol {
   padding-top: clamp(1.5rem, 4vw, 3rem);
 }
+
+/* ---- a grounded top for the sidebar — who's signed in, before where
+   they can go — instead of nav items floating alone at the top of an
+   otherwise-empty column. Filled in async (see renderShell in
+   common.js); reserves height up front so nothing shifts once it
+   resolves. ---- */
+.sidebar-identity {
+  min-height: 28px;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+.sidebar-identity-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: none;
+}
+.sidebar-identity-link:hover {
+  border-bottom: none;
+}
+
+.nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
 .nav-link {
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--text-muted);
   border-bottom: none;
+  padding: 0.55rem 0.75rem;
+  margin: 0 -0.75rem;
+  border-radius: 2px;
+  transition: background-color 0.1s ease, color 0.1s ease;
 }
 .nav-link:hover {
   color: var(--text);
+  background: var(--surface);
 }
 .nav-link.active {
   color: var(--signal);
@@ -183,11 +214,21 @@ a:hover {
     grid-template-columns: 1fr;
   }
   .sidebar {
+    gap: 0;
+    position: static;
+    order: -1;
+  }
+  .sidebar-identity {
+    display: none;
+  }
+  .nav-links {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 1.25rem;
-    position: static;
-    order: -1;
+  }
+  .nav-link {
+    padding: 0.3rem 0;
+    margin: 0;
   }
   .rightcol {
     display: none;
@@ -354,6 +395,26 @@ li.feed-card:last-child {
    the actual rendered size) matches what's drawn. ---- */
 .constellation-frame {
   margin-bottom: 2rem;
+}
+
+/* ---- the avatar overlaps the cover's lower edge instead of sitting in a
+   separate block below it with a gap — the identity text that follows
+   reads as a continuation of the cover, not a disconnected second
+   section. --bg ring separates the avatar from the sky behind it, same
+   idea as any photo-over-photo overlap treatment, just this product's
+   own dark ground instead of white. ---- */
+.profile-cover-frame {
+  position: relative;
+  margin-bottom: 3.5rem;
+}
+.profile-avatar-overlap {
+  position: absolute;
+  left: 1.5rem;
+  bottom: -2.75rem;
+}
+.profile-avatar-overlap .avatar {
+  border: 3px solid var(--bg);
+  background: var(--bg);
 }
 .constellation-cover {
   display: block;

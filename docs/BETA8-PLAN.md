@@ -71,6 +71,15 @@ Found while testing the comparison feature: a client-side redirect (or a pasted/
 
 Looking at the constellation surfaced a real gap in the nook system itself: nothing capped how many nooks one account could have, and with only 7 theme regions to anchor on, many nooks piling into a handful of themes crowds those regions past legibility regardless of any single nook's own size. Fixed with a 7-nook-per-account cap — see [`BETA7-PLAN.md`](BETA7-PLAN.md) item 20 for the full reasoning (Miller's "7±2," and why 7 specifically). Filed there rather than here since it's a change to the nook system, not the constellation — the constellation just surfaced why it mattered.
 
+## Layout, prompted by looking at the profile with a cover on it for the first time
+
+Adding a cover-sized element to the top of the profile made an existing, unrelated problem obvious: the sidebar was just nav links floating at the top of an otherwise-empty column, and the profile's avatar sat in its own disconnected block with a visible gap below the cover — "meio desordenado," in the author's own words, pointed at with a real reference screenshot rather than left abstract.
+
+Two structural fixes, not a visual reskin (this product's own type/color system is untouched):
+
+- **Sidebar** (`renderShell`, `common.js`) gained a grounded top: a small identity snippet (avatar + handle, linking to your own profile) above the nav list, filled in asynchronously via `currentViewer()` once it resolves rather than blocking the rest of the shell — every page already calls `renderShell()` synchronously and uses its return value immediately, so this couldn't become a second async entry point. Nav links themselves gained real block-level padding and a hover background instead of being plain inline text with only a color change — structure, not just a list of words. Icons were deliberately *not* added — this site's sidebar being text-only nav (not Twitter's icon+label rows) was already a considered choice, and copying that specific piece of the reference screenshot's structure would have undone it.
+- **Profile hero** (`profile.js`) — the avatar now overlaps the cover's lower-left edge (`.profile-avatar-overlap`, `position: absolute` against `.profile-cover-frame`) instead of living in a separate side-by-side block below it, closing the gap and reading as one continuous piece rather than two stacked sections. Only applies when there's a real cover to overlap (`hasConstellation`); falls back to the plain side-by-side pairing `.hero` already uses elsewhere (the work page's own poster + title) when a shelf is too small for a shape yet. Deliberately did *not* copy the reference's follower/following/post-count row — this product doesn't show public popularity metrics anywhere, and that's a considered absence, not a gap.
+
 ## Explicitly not in this beta
 
 - Any persistence of the archetype (recomputed fresh on every profile load, same as earlier work's own choice — no confirm/hide UI, no stored history).

@@ -99,9 +99,22 @@ function renderProfilePage(app, profile, constellationNodes, compareNodes) {
   // down the page.
   const hasConstellation = (constellationNodes || []).length >= 2;
   const hasCompare = (compareNodes || []).length >= 2;
+
+  const avatar = avatarEl(profile.handle, profile.avatarUrl);
+  avatar.classList.add("avatar-lg");
+
+  // With a cover to sit on, the avatar overlaps its lower edge instead of
+  // living in a separate side-by-side block below it — the identity text
+  // reads as a continuation of the cover, not a second, disconnected
+  // section with a gap between them. Without one (too little data for a
+  // shape yet), falls back to the plain side-by-side pairing .hero
+  // already uses elsewhere (the work page's own poster + title).
   if (hasConstellation) {
     const cover = el("canvas", { class: "constellation-cover" });
-    const coverFrame = el("div", { class: "constellation-frame" }, [cover]);
+    const coverFrame = el("div", { class: "constellation-frame profile-cover-frame" }, [
+      cover,
+      el("div", { class: "profile-avatar-overlap" }, [avatar]),
+    ]);
     app.appendChild(coverFrame);
     mountConstellationCanvas(cover, constellationNodes, compareNodes);
     if (hasCompare) {
@@ -111,11 +124,7 @@ function renderProfilePage(app, profile, constellationNodes, compareNodes) {
     }
   }
 
-  const hero = el("div", { class: "hero" });
-  const avatar = avatarEl(profile.handle, profile.avatarUrl);
-  avatar.classList.add("avatar-lg");
-  hero.appendChild(el("div", {}, [avatar]));
-  const heroBody = el("div", {}, [
+  const heroBody = el("div", { class: hasConstellation ? "profile-identity" : "" }, [
     el("h1", { class: "work-title", text: `@${displayHandle(profile.handle)}` }),
     el("hr", { class: "hero-rule" }),
   ]);
@@ -133,10 +142,14 @@ function renderProfilePage(app, profile, constellationNodes, compareNodes) {
   if (archetypeBuilt) {
     heroBody.appendChild(archetypeBuilt.card);
   }
-
   heroBody.appendChild(el("p", { class: "mono", text: profile.did }));
-  hero.appendChild(heroBody);
-  app.appendChild(hero);
+
+  if (hasConstellation) {
+    app.appendChild(heroBody);
+  } else {
+    const hero = el("div", { class: "hero" }, [el("div", {}, [avatar]), heroBody]);
+    app.appendChild(hero);
+  }
 
   if (archetypeBuilt) {
     mountArchetypeSymbol(archetypeBuilt.symbolCanvas, constellationNodes);

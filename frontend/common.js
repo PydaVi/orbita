@@ -310,11 +310,32 @@ function renderShell(active) {
 
   const navItem = (label, href, key) =>
     el("a", { href, class: key === active ? "nav-link active" : "nav-link", text: label });
-  const sidebar = el("nav", { class: "sidebar" }, [
+  const navLinks = el("div", { class: "nav-links" }, [
     navItem("Shelf", "/shelf", "shelf"),
     navItem("Feed", "/feed", "feed"),
     navItem("Profile", "/profile", "profile"),
   ]);
+
+  // A grounded top, not just nav items floating at the top of an
+  // otherwise-empty column — who's signed in, before where they can go.
+  // Filled in once currentViewer() resolves rather than blocking the rest
+  // of the shell (every page already calls renderShell() synchronously
+  // and uses its return value immediately) — quietly does nothing if
+  // signed out, same as the rest of this site's own restraint about
+  // never insisting.
+  const identitySlot = el("div", { class: "sidebar-identity" });
+  currentViewer().then((viewer) => {
+    if (!viewer) return;
+    identitySlot.innerHTML = "";
+    identitySlot.appendChild(
+      el("a", { href: `/profile/${viewer.handle}`, class: "sidebar-identity-link" }, [
+        avatarEl(viewer.handle, viewer.avatarUrl),
+        el("span", { class: "mono", text: `@${displayHandle(viewer.handle)}` }),
+      ])
+    );
+  });
+
+  const sidebar = el("nav", { class: "sidebar" }, [identitySlot, navLinks]);
 
   const rightcol = el("aside", { class: "rightcol" }, [
     el("p", { class: "mono", text: "— nothing here yet —" }),
