@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -54,6 +55,21 @@ CREATE TABLE IF NOT EXISTS work_cache (
 );
 `
 
+// work_tags is the real data the archetype work needed and never had —
+// TMDB has always returned genres in its own movie/tv responses
+// (confirmed against the real API), this appview just never extracted
+// them until now. One row per (work, tag) rather than a comma-joined
+// column so a future "which works share this tag" query stays a plain
+// SQL query, not string parsing.
+const workTagsSchema = `
+CREATE TABLE IF NOT EXISTS work_tags (
+	provider TEXT NOT NULL,
+	work_id  TEXT NOT NULL,
+	tag      TEXT NOT NULL,
+	PRIMARY KEY (provider, work_id, tag)
+);
+`
+
 func openDB(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -72,6 +88,9 @@ func openDB(path string) (*sql.DB, error) {
 	// every uncached work was being re-fetched from TMDB on every lookup.
 	if err := ensureColumn(db, "work_cache", "overview", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return nil, fmt.Errorf("migrating work_cache.overview: %w", err)
+	}
+	if _, err := db.Exec(workTagsSchema); err != nil {
+		return nil, fmt.Errorf("creating work_tags schema: %w", err)
 	}
 	if _, err := db.Exec(seasonCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating season_cache schema: %w", err)
@@ -207,6 +226,65 @@ func setCachedWork(db *sql.DB, provider, workID, title, posterURL, year, overvie
 		provider, workID, title, posterURL, year, overview,
 	)
 	return err
+}
+
+func setWorkTags(db *sql.DB, provider, workID string, tags []string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM work_tags WHERE provider = ? AND work_id = ?`, provider, workID); err != nil {
+		return err
+	}
+	for _, t := range tags {
+		if _, err := tx.Exec(
+			`INSERT INTO work_tags (provider, work_id, tag) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
+			provider, workID, t,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func queryWorkTags(db *sql.DB, provider, workID string) []string {
+	rows, err := db.Query(`SELECT tag FROM work_tags WHERE provider = ? AND work_id = ? ORDER BY tag`, provider, workID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var tags []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err == nil {
+			tags = append(tags, t)
+		}
+	}
+	return tags
+}
+
+// getWorkTags resolves directly (not through displayWorkFull's own
+// work_cache check) whenever no tag rows exist yet — work_tags is what
+// this appview didn't have until now, so checking work_cache's own
+// presence isn't a safe proxy for "tags already handled": every work
+// cached before this feature existed already passes that check while
+// genuinely having zero rows in work_tags. A work with real, legitimately
+// zero genres would keep re-resolving here, but that's rare enough in
+// practice (TMDB titles almost always carry at least one) to accept
+// rather than build a separate "tags were attempted" marker for.
+func getWorkTags(db *sql.DB, provider, workID string) []string {
+	if tags := queryWorkTags(db, provider, workID); len(tags) > 0 {
+		return tags
+	}
+	w, err := resolveWork(provider, workID)
+	if err != nil {
+		return nil
+	}
+	if err := setWorkTags(db, provider, workID, w.Genres); err != nil {
+		log.Printf("failed to cache tags for %s/%s: %v", provider, workID, err)
+	}
+	return w.Genres
 }
 
 // The Beta 1 "aggregation" query: grouped by work instead of listed by

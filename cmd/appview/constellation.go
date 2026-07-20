@@ -9,33 +9,28 @@ import (
 
 // Beta 8: the constellation and its archetype, reimagined for this
 // product's own shape rather than ported wholesale from earlier work. The
-// key difference: this appview never gained a genre/tag pipeline (the
-// catalog only ever cached title/poster/year/overview — see tmdb.go), so
-// there's no shared vocabulary to hash into cross-profile anchor
-// positions the way tags did elsewhere. What this product *does* have,
-// uniquely, is nooks — a small, curated, shared vocabulary of themes
-// (style.theme's own knownValues) that's the primary way a shelf gets
-// organized here (Beta 7). So the constellation is anchored on **theme**,
-// not genre: every "warm" nook across every account lands in the same
-// region of everyone's sky, which is the entire point of an anchor system
-// — comparable taste lights up the same place, regardless of what any
-// individual nook happens to be named. Provider (medium) and decade ride
-// along as secondary, weaker pulls. All the actual physics/layout math
-// lives client-side in constellation.js, matching how this project's
-// force layout has always been client-rendered elsewhere on this page —
-// this handler only assembles the raw graph: one node per work, tagged
-// with its nook's theme (or none, for Unsorted) and how many notes exist
-// for it.
+// original version anchored on nook theme (style.theme's own
+// knownValues) since this appview had no genre/tag pipeline — the
+// catalog only ever cached title/poster/year/overview. That pipeline now
+// exists (tmdb.go's work_tags, extracted straight from TMDB's own
+// genres field), so Tags rides along here too — real content signal, not
+// a self-declared label like theme, meant for the archetype work that
+// still needs to actually use it (see docs/BETA8-PLAN.md's ongoing notes).
+// Provider (medium) and decade round out the raw material. All the actual
+// physics/layout math stays client-side in constellation.js, matching how
+// this project's force layout has always been rendered elsewhere — this
+// handler only assembles the graph.
 type constellationNode struct {
-	Provider  string `json:"provider"`
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Poster    string `json:"poster,omitempty"`
-	Year      string `json:"year,omitempty"`
-	NookURI   string `json:"nookUri,omitempty"`
-	NookName  string `json:"nookName,omitempty"`
-	Theme     string `json:"theme,omitempty"` // empty = not in any nook
-	NoteCount int    `json:"noteCount"`
+	Provider  string   `json:"provider"`
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	Poster    string   `json:"poster,omitempty"`
+	Year      string   `json:"year,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
+	NookURI   string   `json:"nookUri,omitempty"`
+	NookName  string   `json:"nookName,omitempty"`
+	Theme     string   `json:"theme,omitempty"` // empty = not in any nook
+	NoteCount int      `json:"noteCount"`
 }
 
 type constellationResponse struct {
@@ -74,8 +69,9 @@ func setupConstellation(mux *http.ServeMux, db *sql.DB) {
 				}
 				seen[key] = true
 				title, poster, year, _ := displayWorkFull(db, work.Provider, work.WorkID)
+				tags := getWorkTags(db, work.Provider, work.WorkID)
 				nodes = append(nodes, constellationNode{
-					Provider: work.Provider, ID: work.WorkID, Title: title, Poster: poster, Year: year,
+					Provider: work.Provider, ID: work.WorkID, Title: title, Poster: poster, Year: year, Tags: tags,
 					NookURI: n.URI, NookName: n.Name, Theme: n.Theme,
 					NoteCount: noteCounts[key],
 				})
@@ -94,8 +90,9 @@ func setupConstellation(mux *http.ServeMux, db *sql.DB) {
 			}
 			seen[key] = true
 			title, poster, year, _ := displayWorkFull(db, it.Provider, it.WorkID)
+			tags := getWorkTags(db, it.Provider, it.WorkID)
 			nodes = append(nodes, constellationNode{
-				Provider: it.Provider, ID: it.WorkID, Title: title, Poster: poster, Year: year,
+				Provider: it.Provider, ID: it.WorkID, Title: title, Poster: poster, Year: year, Tags: tags,
 				NoteCount: noteCounts[key],
 			})
 		}

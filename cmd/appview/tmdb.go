@@ -21,6 +21,7 @@ type resolvedWork struct {
 	PosterURL string
 	Year      string
 	Overview  string
+	Genres    []string
 }
 
 func fetchFromTMDB(kind, id string) (resolvedWork, error) {
@@ -48,6 +49,9 @@ func fetchFromTMDB(kind, id string) (resolvedWork, error) {
 		ReleaseDate  string `json:"release_date"`
 		FirstAirDate string `json:"first_air_date"`
 		Overview     string `json:"overview"`
+		Genres       []struct {
+			Name string `json:"name"`
+		} `json:"genres"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return resolvedWork{}, err
@@ -66,8 +70,12 @@ func fetchFromTMDB(kind, id string) (resolvedWork, error) {
 	if body.PosterPath != "" {
 		poster = tmdbImageBase + body.PosterPath
 	}
+	genres := make([]string, 0, len(body.Genres))
+	for _, g := range body.Genres {
+		genres = append(genres, g.Name)
+	}
 
-	return resolvedWork{Title: title, PosterURL: poster, Year: year, Overview: body.Overview}, nil
+	return resolvedWork{Title: title, PosterURL: poster, Year: year, Overview: body.Overview, Genres: genres}, nil
 }
 
 type searchResult struct {
@@ -187,6 +195,12 @@ func displayWorkFull(db *sql.DB, provider, workID string) (title, posterURL, yea
 
 	if err := setCachedWork(db, provider, workID, w.Title, w.PosterURL, w.Year, w.Overview); err != nil {
 		log.Printf("failed to cache %s/%s: %v", provider, workID, err)
+	}
+	// Cached as a side effect of resolving, not because this call asked
+	// for tags — getWorkTags (db.go) shares this same resolve path so
+	// calling both for the same work never means two TMDB requests.
+	if err := setWorkTags(db, provider, workID, w.Genres); err != nil {
+		log.Printf("failed to cache tags for %s/%s: %v", provider, workID, err)
 	}
 	return w.Title, w.PosterURL, w.Year, w.Overview
 }
