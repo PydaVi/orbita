@@ -107,14 +107,22 @@ a:hover {
    common.js) — just the mark and the wordmark. Navigation itself lives in
    the sidebar below, not here — same split `comum` already validated
    (topbar carries identity, sidebar carries the nav list in text). ---- */
+/* Shares .layout's exact grid definition (same columns, same max-width,
+   same centering, no horizontal padding of its own) purely so the brand
+   mark lands directly above the center column, not the sidebar — and so
+   the vertical divider lines below (.sidebar/.layout .page border-right)
+   read as continuing a real column structure instead of misaligning with
+   whatever sat above them. */
 .topbar {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 220px;
+  gap: clamp(1.5rem, 3vw, 3rem);
   max-width: 1180px;
   margin: 0 auto;
-  padding: 1.25rem 1.5rem 0;
+  padding: 1.25rem 0 0;
 }
 .brand {
+  grid-column: 2;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -148,17 +156,20 @@ a:hover {
   gap: clamp(1.5rem, 3vw, 3rem);
   max-width: 1180px;
   margin: 0 auto;
-  align-items: start;
+  align-items: stretch;
 }
 .layout .page {
   max-width: none;
   margin: 0;
+  border-right: 1px solid var(--rule);
+  padding-right: clamp(1.5rem, 3vw, 3rem);
 }
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  padding: clamp(1.5rem, 4vw, 3rem) 0 0;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1.5rem, 3vw, 3rem) 0 0;
+  border-right: 1px solid var(--rule);
   position: sticky;
   top: 1rem;
 }
@@ -228,11 +239,19 @@ a:hover {
 }
 
 @media (max-width: 800px) {
+  .topbar {
+    grid-template-columns: 1fr;
+    padding: 1.25rem 1.5rem 0;
+  }
+  .brand {
+    grid-column: 1;
+  }
   .layout {
     grid-template-columns: 1fr;
   }
   .sidebar {
     gap: 0;
+    border-right: none;
     position: static;
     order: -1;
   }
@@ -247,6 +266,10 @@ a:hover {
   .nav-link {
     padding: 0.3rem 0;
     margin: 0;
+  }
+  .layout .page {
+    border-right: none;
+    padding-right: 1.5rem;
   }
   .rightcol {
     display: none;

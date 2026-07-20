@@ -81,7 +81,8 @@ func setupSaved(mux *http.ServeMux, db *sql.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 
 	mux.HandleFunc("POST /api/notes/unsave", func(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +102,8 @@ func setupSaved(mux *http.ServeMux, db *sql.DB) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 
 	mux.HandleFunc("GET /api/saved/uris", func(w http.ResponseWriter, r *http.Request) {

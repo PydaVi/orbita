@@ -20,7 +20,9 @@ function el(tag, props, children) {
 async function fetchJSON(url, options) {
   const res = await fetch(url, options);
   if (!res.ok) throw new Error(`API returned ${res.status}`);
-  return res.json();
+  const text = await res.text();
+  if (!text) return null; // a 200 with no body is still a real success, not malformed JSON
+  return JSON.parse(text);
 }
 
 async function currentViewer() {
