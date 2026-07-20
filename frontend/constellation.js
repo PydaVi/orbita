@@ -353,93 +353,189 @@ function attachConstellationInteractivity(canvas, items, tooltip) {
   });
 }
 
-// ---- archetype: a signature derived from the same shape, not a separate
-// feature bolted on next to it. ----
+// ---- archetype v2 — grounded in a real study (see BETA8-PLAN.md), not
+// in the shelf's organizational shape. The first version (spread ×
+// cohesion) measured how a shelf is organized and never what it's
+// actually made of — two people who love completely different things
+// could land on the same archetype if their organizing habits happened
+// to rhyme. A tempting fix (name it after the dominant nook theme) was
+// rejected too: theme is a dropdown a person picks by hand, and naming an
+// identity after something directly self-selected isn't discovery, it's
+// choosing your own sign.
+//
+// This version is built on real content — TMDB's own genre tags
+// (tmdb.go's work_tags, finally extracted) — weighted by which tag a
+// person actually *writes about*, not just collects, so the signal comes
+// from behavior nobody declared on purpose. A synthetic 30-account study
+// (scratchpad, not part of this repo) confirmed this recovers real,
+// non-obvious pattern; self-declared theme did not. ----
 
-// spread: mass-weighted inverse Simpson index across the 8 possible
-// regions (7 curated themes + Unsorted) — how many of them a shelf
-// actually reaches, weighted so a work with notes counts for a bit more
-// than one with none (a voice, not just a placement).
-function computeSpread(nodes) {
+// TMDB's own vocabulary, canonicalized: movie and TV genre lists overlap
+// but don't match exactly ("Action" vs "Action & Adventure", "Science
+// Fiction" vs "Sci-Fi & Fantasy") — this merges the synonyms and groups
+// genuinely adjacent genres into one family, the same grouping the study
+// found actually cluster together in practice. Format categories with no
+// real personality signal (News, Talk, Reality, Soap, TV Movie) are left
+// out entirely, not forced into a family they don't belong to.
+const TAG_FAMILY = {
+  Action: "trilha_aberta",
+  Adventure: "trilha_aberta",
+  "Action & Adventure": "trilha_aberta",
+  War: "trilha_aberta",
+  "War & Politics": "trilha_aberta",
+  Western: "trilha_aberta",
+  "Science Fiction": "outro_mundo",
+  Fantasy: "outro_mundo",
+  "Sci-Fi & Fantasy": "outro_mundo",
+  Mystery: "pergunta_certa",
+  Thriller: "pergunta_certa",
+  Crime: "pergunta_certa",
+  Horror: "vigilia",
+  Comedy: "sem_peso",
+  Animation: "sem_peso",
+  Family: "sem_peso",
+  Kids: "sem_peso",
+  Drama: "peso_real",
+  Romance: "coracao_exposto",
+  Documentary: "testemunha",
+  History: "testemunha",
+  Music: "testemunha",
+};
+
+const ARCHETYPES = {
+  trilha_aberta: {
+    title: "Trilha Aberta",
+    voice:
+      "Você não guarda obra parada — precisa de movimento, de gente indo a algum lugar, de risco real. Seu gosto tem estrada, não sofá.",
+  },
+  outro_mundo: {
+    title: "Outro Mundo",
+    voice:
+      "Sua estante não cabe neste mundo — você coleciona o que só existe sob outra regra, outra física, outra lei. O real te interessa menos do que o possível.",
+  },
+  pergunta_certa: {
+    title: "A Pergunta Certa",
+    voice:
+      "Você não guarda resposta — guarda pergunta. Cada obra na sua estante é um quebra-cabeça que ainda não contou tudo, e é assim que você gosta.",
+  },
+  vigilia: {
+    title: "A Vigília",
+    voice: "Você procura o que te assusta, de propósito. Sua estante não evita o medo — ela o estuda, volta a ele de novo.",
+  },
+  sem_peso: {
+    title: "Sem Peso",
+    voice:
+      "Você não pede que a obra sofra pra valer a pena. Seu gosto sabe rir de si mesmo — leveza não é falta de profundidade, é outra forma dela.",
+  },
+  peso_real: {
+    title: "Peso Real",
+    voice: "Você não foge do que dói. Sua estante é feita de gente de verdade enfrentando coisa de verdade, sem fantasia pra suavizar.",
+  },
+  coracao_exposto: {
+    title: "Coração Exposto",
+    voice: "Você guarda o que ama abertamente. Sua estante não tem vergonha de sentir — cada obra aqui é sobre alguém que se permitiu amar.",
+  },
+  testemunha: {
+    title: "Testemunha",
+    voice: "Você prefere o que realmente aconteceu. Sua estante não inventa — ela registra, investiga, dá testemunho do que foi real.",
+  },
+};
+
+// A family only becomes someone's primary identity with a real sample
+// behind it — the same discipline the study needed to stop a tag that
+// only appears twice from faking a 100% note-rate.
+const MIN_FAMILY_SAMPLE = 5;
+// How much extra a tag is worth when the work carrying it also has a
+// note — voice counts for more than passive collecting, same weighting
+// validated in the study.
+const NOTE_WEIGHT = 2;
+
+function familyMass(nodes) {
   const mass = {};
+  const counts = {};
   for (const n of nodes) {
-    const theme = n.theme || "unsorted";
-    mass[theme] = (mass[theme] || 0) + 1 + n.noteCount * 0.5;
+    const seen = new Set();
+    for (const tag of n.tags || []) {
+      const family = TAG_FAMILY[tag];
+      if (!family || seen.has(family)) continue; // a work with 2 tags in the same family only counts once
+      seen.add(family);
+      counts[family] = (counts[family] || 0) + 1;
+      mass[family] = (mass[family] || 0) + 1 + n.noteCount * NOTE_WEIGHT;
+    }
   }
-  const total = Object.values(mass).reduce((a, b) => a + b, 0);
-  const simpson = Object.values(mass).reduce((sum, m) => sum + (m / total) ** 2, 0);
-  return { spread: 1 / simpson / THEME_ORDER.length, mass };
+  return { mass, counts };
 }
 
-// cohesion: the fraction of the whole shelf living inside its single
-// biggest nook. A nook already *is* a deliberate, real grouping here —
-// unlike a tag-overlap graph, there's no connectivity to infer, just a
-// share to measure.
-function computeCohesion(nodes) {
-  const massByNook = {};
+// Does this person bridge distant eras on purpose, or live in one? Splits
+// years at the shelf's own mean and checks whether there's a real gap
+// between the two halves — a plain decade spread doesn't distinguish
+// "spread evenly across 60 years" from "1960s and 2020s, nothing between,"
+// and only the second one is the surprising, personality-revealing shape
+// the study found.
+function temporalSignature(nodes) {
+  const years = nodes.map((n) => parseInt(n.year, 10)).filter((y) => !isNaN(y));
+  if (years.length < 6) return null;
+  years.sort((a, b) => a - b);
+  const mid = years.length / 2;
+  const early = years.slice(0, Math.floor(mid));
+  const late = years.slice(Math.ceil(mid));
+  if (!early.length || !late.length) return null;
+  const earlyMax = early[early.length - 1];
+  const lateMin = late[0];
+  const gap = lateMin - earlyMax;
+  const fullSpan = years[years.length - 1] - years[0];
+  if (fullSpan > 0 && gap / fullSpan > 0.35 && gap > 15) {
+    return `E não é só um tipo de história — você atravessa décadas de propósito, sem medo de misturar o que já é clássico com o que acabou de sair.`;
+  }
+  return null;
+}
+
+// Cross-references note density per nook against nook size — if the
+// nook where notes concentrate most isn't the biggest one, that's a real,
+// non-obvious signal: your actual voice lives somewhere smaller and
+// quieter than where most of your collecting happens.
+function voiceLocationSignature(nodes) {
+  const byNook = new Map();
   for (const n of nodes) {
     if (!n.nookUri) continue;
-    massByNook[n.nookUri] = (massByNook[n.nookUri] || 0) + 1;
+    if (!byNook.has(n.nookUri)) byNook.set(n.nookUri, { works: 0, notes: 0 });
+    const entry = byNook.get(n.nookUri);
+    entry.works += 1;
+    entry.notes += n.noteCount;
   }
-  const entries = Object.entries(massByNook).sort((a, b) => b[1] - a[1]);
-  if (entries.length === 0) return { cohesion: 0, biggestNookURI: null, biggestNookCount: 0 };
-  return { cohesion: entries[0][1] / nodes.length, biggestNookURI: entries[0][0], biggestNookCount: entries[0][1] };
-}
-
-// A first pass, not a calibrated one — these three-way cutoffs are a
-// reasonable starting split, not tuned against real distribution data
-// (this appview doesn't have enough accounts yet for that to mean
-// anything). Worth revisiting once more shelves exist to look at.
-const ARCHETYPE_NAMES = [
-  // spread: low
-  [
-    { title: "Luz Cinzenta", voice: "Poucas regiões, ainda nada reunido — um sinal em formação." },
-    { title: "Par Próximo", voice: "Duas ou três obsessões, perto uma da outra, ainda não uma só." },
-    { title: "Estrela Fixa", voice: "Um gosto raro e definido: quase tudo gravita em torno de um único nook." },
-  ],
-  // spread: mid
-  [
-    { title: "Campo Difuso", voice: "Gosto plural, mas nada puxou o resto pra perto ainda." },
-    { title: "Trajeto Orbital", voice: "Algumas órbitas bem definidas, o resto ainda em trânsito." },
-    { title: "Estrela-Guia", voice: "Gosto plural, mas um nook guia todo o resto." },
-  ],
-  // spread: high
-  [
-    { title: "Campo Profundo", voice: "Estante ampla, nada domina — cada obra é seu próprio ponto de luz." },
-    { title: "Mapa Estelar", voice: "Muitas regiões, parcialmente organizadas em nooks." },
-    { title: "Centro de Massa", voice: "Gosto amplo, mas com gravidade real: um nook grande o bastante pra puxar quase tudo." },
-  ],
-];
-
-function levelOf(value, lowMax, midMax) {
-  if (value < lowMax) return 0;
-  if (value < midMax) return 1;
-  return 2;
-}
-
-function buildEvidence(nodes, mass, cohesionInfo) {
-  const touched = Object.keys(mass).length;
-  if (cohesionInfo.biggestNookURI && cohesionInfo.cohesion >= 0.4) {
-    const nook = nodes.find((n) => n.nookUri === cohesionInfo.biggestNookURI);
-    const pct = Math.round(cohesionInfo.cohesion * 100);
-    const rest = nodes.length - cohesionInfo.biggestNookCount;
-    return `${pct}% da sua estante está no nook "${nook.nookName}" — ${rest} obra${rest === 1 ? "" : "s"} em outros lugares ou ainda sem nook.`;
+  if (byNook.size < 2) return null;
+  const entries = [...byNook.values()];
+  const loudest = entries.reduce((a, b) => (b.notes / b.works > a.notes / a.works ? b : a));
+  const biggest = entries.reduce((a, b) => (b.works > a.works ? b : a));
+  if (loudest !== biggest && loudest.works <= biggest.works * 0.6 && loudest.notes > 0) {
+    return "Curiosamente, é no seu canto menor e mais discreto que você mais tem o que dizer — sua voz de verdade mora onde poucos olham.";
   }
-  return `Sua estante toca ${touched} de ${THEME_ORDER.length} climas possíveis.`;
+  return null;
 }
 
 function computeArchetype(nodes) {
   if (nodes.length === 0) return null;
-  const { spread, mass } = computeSpread(nodes);
-  const cohesionInfo = computeCohesion(nodes);
-  const spreadLevel = levelOf(spread, 0.4, 0.7);
-  const cohesionLevel = levelOf(cohesionInfo.cohesion, 0.3, 0.6);
-  const named = ARCHETYPE_NAMES[spreadLevel][cohesionLevel];
-  return {
-    title: named.title,
-    voice: named.voice,
-    evidence: buildEvidence(nodes, mass, cohesionInfo),
-  };
+  const { mass, counts } = familyMass(nodes);
+  const eligible = Object.entries(mass).filter(([family]) => counts[family] >= MIN_FAMILY_SAMPLE);
+  if (eligible.length === 0) {
+    return {
+      title: "Ainda Formando",
+      voice: "Sua estante ainda não tem obras marcadas o bastante pra revelar um padrão real — isso pede tempo, não pressa.",
+      evidence: `${nodes.length} obra${nodes.length === 1 ? "" : "s"} na estante, poucas com tags reconhecidas ainda.`,
+    };
+  }
+  eligible.sort((a, b) => b[1] - a[1]);
+  const [topFamily] = eligible[0];
+  const archetype = ARCHETYPES[topFamily];
+
+  const extra = temporalSignature(nodes) || voiceLocationSignature(nodes);
+  const voice = extra ? `${archetype.voice} ${extra}` : archetype.voice;
+
+  const totalTagged = nodes.filter((n) => (n.tags || []).some((t) => TAG_FAMILY[t])).length;
+  const pct = totalTagged > 0 ? Math.round((counts[topFamily] / totalTagged) * 100) : 0;
+  const evidence = `${pct}% das suas obras marcadas puxam pra esse lado — ${counts[topFamily]} de ${totalTagged} com tag reconhecida.`;
+
+  return { title: archetype.title, voice, evidence };
 }
 
 // ---- public surface — profile.js decides where each piece goes (the
