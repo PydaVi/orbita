@@ -125,6 +125,7 @@ a:hover {
   grid-column: 2;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   border-bottom: none;
 }
@@ -192,6 +193,13 @@ a:hover {
   align-items: center;
   gap: 0.6rem;
   border-bottom: none;
+  min-width: 0;
+}
+.sidebar-identity-link .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .sidebar-identity-link:hover {
   border-bottom: none;
