@@ -60,12 +60,18 @@ CREATE TABLE IF NOT EXISTS work_cache (
 // (confirmed against the real API), this appview just never extracted
 // them until now. One row per (work, tag) rather than a comma-joined
 // column so a future "which works share this tag" query stays a plain
-// SQL query, not string parsing.
+// SQL query, not string parsing. position preserves TMDB's own genre
+// order (index in resolveWork's Genres slice) — the constellation's
+// dominantFamily() picks "the first recognized tag" to decide a work's
+// single anchor family, and that's only a meaningful choice if "first"
+// means TMDB's own primary genre, not whatever a plain SELECT happens to
+// return.
 const workTagsSchema = `
 CREATE TABLE IF NOT EXISTS work_tags (
 	provider TEXT NOT NULL,
 	work_id  TEXT NOT NULL,
 	tag      TEXT NOT NULL,
+	position INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY (provider, work_id, tag)
 );
 `
@@ -91,6 +97,30 @@ func openDB(path string) (*sql.DB, error) {
 	}
 	if _, err := db.Exec(workTagsSchema); err != nil {
 		return nil, fmt.Errorf("creating work_tags schema: %w", err)
+	}
+	// Found live: every work_tags row written before `position` existed was
+	// read back in plain alphabetical order (SQLite's own index order for
+	// this lookup, not insertion order), which silently broke
+	// dominantFamily()'s "first tag" rule into "alphabetically-first tag" —
+	// Drama, this catalog's most common secondary genre, almost never won
+	// alphabetically, so the constellation's anchors and the archetype's
+	// own dominant-family text could genuinely disagree. Distinguishing
+	// "just added the column" from "already migrated" (ensureColumn's own
+	// swallowed-error return can't tell them apart) matters here: only a
+	// fresh ALTER means the existing rows predate real ordering and are
+	// worth clearing. work_tags is a disposable cache like work_cache —
+	// wiping it just means the next read re-resolves through TMDB, this
+	// time with position recorded correctly.
+	alterErr := func() error {
+		_, err := db.Exec(`ALTER TABLE work_tags ADD COLUMN position INTEGER NOT NULL DEFAULT 0`)
+		return err
+	}()
+	if alterErr == nil {
+		if _, err := db.Exec(`DELETE FROM work_tags`); err != nil {
+			return nil, fmt.Errorf("clearing stale work_tags after position migration: %w", err)
+		}
+	} else if !strings.Contains(alterErr.Error(), "duplicate column name") {
+		return nil, fmt.Errorf("migrating work_tags.position: %w", alterErr)
 	}
 	if _, err := db.Exec(seasonCacheSchema); err != nil {
 		return nil, fmt.Errorf("creating season_cache schema: %w", err)
@@ -237,10 +267,10 @@ func setWorkTags(db *sql.DB, provider, workID string, tags []string) error {
 	if _, err := tx.Exec(`DELETE FROM work_tags WHERE provider = ? AND work_id = ?`, provider, workID); err != nil {
 		return err
 	}
-	for _, t := range tags {
+	for i, t := range tags {
 		if _, err := tx.Exec(
-			`INSERT INTO work_tags (provider, work_id, tag) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
-			provider, workID, t,
+			`INSERT INTO work_tags (provider, work_id, tag, position) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+			provider, workID, t, i,
 		); err != nil {
 			return err
 		}
@@ -249,7 +279,7 @@ func setWorkTags(db *sql.DB, provider, workID string, tags []string) error {
 }
 
 func queryWorkTags(db *sql.DB, provider, workID string) []string {
-	rows, err := db.Query(`SELECT tag FROM work_tags WHERE provider = ? AND work_id = ? ORDER BY tag`, provider, workID)
+	rows, err := db.Query(`SELECT tag FROM work_tags WHERE provider = ? AND work_id = ? ORDER BY position`, provider, workID)
 	if err != nil {
 		return nil
 	}

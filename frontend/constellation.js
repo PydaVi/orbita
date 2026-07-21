@@ -1,16 +1,18 @@
 // Beta 8: the constellation, reimagined for this product's own shape
-// rather than ported from earlier work. That earlier version anchored
-// nodes by genre/tag, hashed into a fixed position so similar taste lit up
-// the same region across different people's profiles. This appview never
-// built a tag pipeline — the one thing it *does* have, uniquely, that's
-// small and curated enough to serve the same purpose, is a nook's own
-// theme (style.theme's handful of knownValues, see nook.json). So this
-// constellation is anchored on theme, not genre: every "riso" nook across
-// every account lands in the same region of everyone's sky. Provider
-// (medium) and decade ride along as secondary, weaker pulls. Nook
-// membership is real and deliberate here (not inferred from tag overlap
-// the way it had to be before), so works in the same nook get an actual
-// drawn connection, not a computed one.
+// rather than ported from earlier work. First version anchored on nook
+// theme (style.theme's handful of knownValues) since this appview had no
+// tag pipeline yet. That pipeline now exists (tmdb.go's work_tags, the
+// same real TMDB genre data the archetype below is built on) — so the
+// constellation re-anchors on the same 8 tag families the archetype uses,
+// not on theme, which was always a self-declared dropdown value and never
+// a fair stand-in for what a shelf is actually made of. This is what makes
+// the cross-profile comparison overlay mean something real: two people's
+// shapes now cluster together exactly where their real taste overlaps, not
+// where their nook-naming habits happen to rhyme. Nook theme keeps exactly
+// one job here — coloring the connections between works in the same nook,
+// a real, deliberate curation signal independent of what a work is
+// actually about. Provider (medium) and decade still ride along as
+// secondary, weaker pulls on top of the family anchor.
 //
 // All physics/rendering is fresh, hand-rolled Canvas2D — no library,
 // matching this frontend's own rule everywhere else.
@@ -38,6 +40,90 @@ const THEME_COLORS = {
 // work marks that *you wrote about it*, which is a fact about your own
 // voice, not about which nook it's in. Theme color stays on the dot fill.
 const SIGNAL_COLOR = "#d98a3d";
+
+// TMDB's own vocabulary, canonicalized: movie and TV genre lists overlap
+// but don't match exactly ("Action" vs "Action & Adventure", "Science
+// Fiction" vs "Sci-Fi & Fantasy") — this merges the synonyms and groups
+// genuinely adjacent genres into one family, the same grouping a synthetic
+// study (see docs/BETA8-PLAN.md) found actually cluster together in
+// practice. Format categories with no real personality signal (News, Talk,
+// Reality, Soap, TV Movie) are left out entirely, not forced into a family
+// they don't belong to. Foundational to the anchor system below, same
+// tier as THEME_ORDER/THEME_COLORS — moved up here from where it was
+// first written (right next to ARCHETYPES, further down) because the
+// layout code now depends on it too, not just the archetype text.
+const TAG_FAMILY = {
+  Action: "trilha_aberta",
+  Adventure: "trilha_aberta",
+  "Action & Adventure": "trilha_aberta",
+  War: "trilha_aberta",
+  "War & Politics": "trilha_aberta",
+  Western: "trilha_aberta",
+  "Science Fiction": "outro_mundo",
+  Fantasy: "outro_mundo",
+  "Sci-Fi & Fantasy": "outro_mundo",
+  Mystery: "pergunta_certa",
+  Thriller: "pergunta_certa",
+  Crime: "pergunta_certa",
+  Horror: "vigilia",
+  Comedy: "sem_peso",
+  Animation: "sem_peso",
+  Family: "sem_peso",
+  Kids: "sem_peso",
+  Drama: "peso_real",
+  Romance: "coracao_exposto",
+  Documentary: "testemunha",
+  History: "testemunha",
+  Music: "testemunha",
+};
+
+const FALLBACK_FAMILY = "sem_familia";
+const FALLBACK_LABEL = "Unsigned"; // per-node: no recognized genre tag at all
+
+// Explicit, not derived from ARCHETYPES' own key order — ARCHETYPES stays
+// defined further down (archetype prose, a separate concern from anchor
+// position), and a top-level const here can't safely read from it before
+// that line has run.
+const FAMILY_ORDER = [
+  "trilha_aberta", "outro_mundo", "pergunta_certa", "vigilia",
+  "sem_peso", "peso_real", "coracao_exposto", "testemunha",
+  FALLBACK_FAMILY,
+];
+
+// Distinct from THEME_COLORS/--duo-*-hi (those stay in active use
+// elsewhere for nook theming — nook cards, frame accents — untouched by
+// this change). No CSS custom-property counterpart: nothing outside
+// <canvas> ever reads these, unlike THEME_COLORS which nook cards also
+// consume via DOM classes — so a plain JS const is the whole story here.
+// First cut, not calibrated against real profiles yet — same "vamos
+// ajustando depois" spirit as every other subjective choice in this
+// feature so far.
+const FAMILY_COLORS = {
+  trilha_aberta: "#c1592e", // terracotta — motion, open road
+  outro_mundo: "#8d6bb0", // otherworldly violet
+  pergunta_certa: "#4f9d8a", // investigative teal-green
+  vigilia: "#6e1f2b", // oxblood — dread, kept vigil
+  sem_peso: "#e6c15c", // soft yellow — levity
+  peso_real: "#38424c", // heavy charcoal-blue — real weight
+  coracao_exposto: "#c48791", // dusty rose — an open heart
+  testemunha: "#a9835a", // archival sepia — record, witness
+  sem_familia: "#8a8894", // reused, not invented — THEME_COLORS.unsorted's own gray
+};
+
+// Exactly one family anchors a node's position, even though its raw tags
+// can resolve to more than one (a title tagged both "Action" and "Drama"
+// touches trilha_aberta and peso_real alike) — first tag in the node's own
+// tags array that resolves via TAG_FAMILY wins; that array preserves
+// TMDB's own genre order, stable per title. Falls to FALLBACK_FAMILY when
+// nothing resolves (no tags yet, or only format categories TAG_FAMILY
+// deliberately excludes).
+function dominantFamily(tags) {
+  for (const tag of tags || []) {
+    const family = TAG_FAMILY[tag];
+    if (family) return family;
+  }
+  return FALLBACK_FAMILY;
+}
 
 function hexToRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -88,16 +174,22 @@ function hashString(s) {
   return h;
 }
 
+// A small, near-point core, not a filled disc — flagged directly as
+// reading like "a bunch of blobs" at the old size (4px minimum, growing
+// linearly). Real starlight is a tiny point of light with most of its
+// visible size coming from the bloom around it, not from the point
+// itself being large.
 function dotRadius(noteCount) {
-  return 4 + Math.log(1 + noteCount) * 2.4;
+  return 2 + Math.log(1 + noteCount) * 1.6;
 }
 
-// Deterministic anchor for a theme — the same angle on every profile is
-// what makes two people's "warm" nooks land in the same region of their
-// own skies, regardless of what either of them named the nook itself.
-function themeAnchor(theme, cx, cy, radius) {
-  const idx = Math.max(0, THEME_ORDER.indexOf(theme || "unsorted"));
-  const angle = (idx / THEME_ORDER.length) * Math.PI * 2 - Math.PI / 2;
+// Deterministic anchor for a tag family — the same angle on every profile
+// is what makes two people's "vigilia" (horror) works land in the same
+// region of their own skies, regardless of which nook either of them put
+// it in or what they named that nook.
+function familyAnchor(family, cx, cy, radius) {
+  const idx = Math.max(0, FAMILY_ORDER.indexOf(family || FALLBACK_FAMILY));
+  const angle = (idx / FAMILY_ORDER.length) * Math.PI * 2 - Math.PI / 2;
   return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius, angle };
 }
 
@@ -117,15 +209,15 @@ function decadeOffset(year, radius) {
 // Synchronous force simulation (not a per-frame animation loop) — the
 // same "settle it once, render the final frame" approach this appview
 // already leans toward for anything computed, not streamed. Anchor pull
-// (theme, weight 4) dominates provider/decade (weight 1 each) on purpose:
-// nooks are the primary way a shelf is organized here (Beta 7's own
-// stated principle), so the constellation's *dominant* visible structure
-// should be theme, with medium/decade only as fine texture within it.
+// (tag family, weight 4) dominates provider/decade (weight 1 each) on
+// purpose: family is this constellation's dominant visible structure, the
+// same real signal the archetype identity is built on, with medium/decade
+// only as fine texture within it.
 function computeConstellationLayout(nodes, width, height) {
   const cx = width / 2;
   const cy = height / 2;
   const anchorRadius = Math.min(width, height) * 0.36;
-  const themesPresent = new Set();
+  const familiesPresent = new Set();
 
   // Starting each node near its *own* target (not all of them piled at
   // dead center) matters more than it looks: with everything jittered
@@ -136,15 +228,15 @@ function computeConstellationLayout(nodes, width, height) {
   // say. Starting near the real target means repulsion only ever has to
   // gently sort out nodes that genuinely belong in the same neighborhood.
   const items = nodes.map((n) => {
-    const theme = n.theme || "unsorted";
-    themesPresent.add(theme);
-    const anchor = themeAnchor(theme, cx, cy, anchorRadius);
+    const family = dominantFamily(n.tags);
+    familiesPresent.add(family);
+    const anchor = familyAnchor(family, cx, cy, anchorRadius);
     const pOff = providerOffset(n.provider, anchorRadius * 0.22);
     const dOff = decadeOffset(n.year, anchorRadius * 0.14);
     const target = { x: anchor.x + pOff.x + dOff.x, y: anchor.y + pOff.y + dOff.y };
     return {
       node: n,
-      theme,
+      family,
       x: target.x + (Math.random() - 0.5) * 40,
       y: target.y + (Math.random() - 0.5) * 40,
       vx: 0,
@@ -193,14 +285,14 @@ function computeConstellationLayout(nodes, width, height) {
   }
 
   const anchors = {};
-  for (const theme of themesPresent) {
-    anchors[theme] = themeAnchor(theme, cx, cy, anchorRadius);
+  for (const family of familiesPresent) {
+    anchors[family] = familyAnchor(family, cx, cy, anchorRadius);
   }
   return { items, anchors, cx, cy, anchorRadius };
 }
 
 // compareLayout, when given, is the viewer's *own* shape — computed at
-// the same canvas dimensions, so its theme anchors land in exactly the
+// the same canvas dimensions, so its family anchors land in exactly the
 // same places as the profile being viewed (that alignment is the entire
 // point of anchoring on a small shared vocabulary rather than a free
 // one). Drawn first, as hollow rings only — no connecting lines, no
@@ -232,7 +324,7 @@ function renderConstellationCanvas(canvas, layout, compareLayout) {
 
   if (compareLayout) {
     for (const it of compareLayout.items) {
-      const color = THEME_COLORS[it.theme] || THEME_COLORS.unsorted;
+      const color = FAMILY_COLORS[it.family] || FAMILY_COLORS[FALLBACK_FAMILY];
       ctx.globalAlpha = 0.55;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5;
@@ -243,16 +335,17 @@ function renderConstellationCanvas(canvas, layout, compareLayout) {
     ctx.globalAlpha = 1;
   }
 
-  // Region labels — only for themes actually present, so an account with
-  // three nooks doesn't show five empty labels for moods it never touched.
-  // Canvas fonts can't reference a CSS custom property — this has to be
-  // the literal family name, unlike everywhere else this project sets
-  // type via var(--font-data).
+  // Region labels — only for families actually present, so an account
+  // with three nooks doesn't show nine empty labels for genres it never
+  // touched. Canvas fonts can't reference a CSS custom property — this has
+  // to be the literal family title, unlike everywhere else this project
+  // sets type via var(--font-data).
   ctx.font = "11px 'Space Mono', monospace";
   ctx.fillStyle = "rgba(138, 136, 148, 0.6)";
   ctx.textAlign = "center";
-  for (const [theme, anchor] of Object.entries(anchors)) {
-    ctx.fillText(theme, anchor.x, anchor.y);
+  for (const [family, anchor] of Object.entries(anchors)) {
+    const label = family === FALLBACK_FAMILY ? FALLBACK_LABEL : (ARCHETYPES[family]?.title || family);
+    ctx.fillText(label, anchor.x, anchor.y);
   }
 
   // Nook edges: a real, deliberate grouping here (not inferred from tag
@@ -261,8 +354,10 @@ function renderConstellationCanvas(canvas, layout, compareLayout) {
   // neighbor chain), not a line between every possible pair. A full mesh
   // on an n-work nook draws O(n²) crossing lines and reads as a hairball,
   // not a constellation; a real star chart never does that either. Each
-  // nook's own lines take its own theme color, faint — the region's
-  // identity extends to its connections, not just its dots.
+  // nook's own lines take its own theme color, faint — nook membership and
+  // a work's tag-family anchor are independent axes now, so this reaches
+  // through the raw node (group[0].node.theme), not the item's own
+  // .family, which is a different fact about the same work.
   const byNook = new Map();
   for (const it of items) {
     if (!it.node.nookUri) continue;
@@ -270,7 +365,7 @@ function renderConstellationCanvas(canvas, layout, compareLayout) {
     byNook.get(it.node.nookUri).push(it);
   }
   for (const group of byNook.values()) {
-    const color = THEME_COLORS[group[0].theme] || THEME_COLORS.unsorted;
+    const color = THEME_COLORS[group[0].node.theme] || THEME_COLORS.unsorted;
     ctx.strokeStyle = hexToRgba(color, 0.4);
     ctx.lineWidth = 1;
     for (const [a, b] of nearestNeighborChain(group)) {
@@ -281,22 +376,42 @@ function renderConstellationCanvas(canvas, layout, compareLayout) {
     }
   }
 
-  // A flat filled circle reads as a data-viz bubble; an actual photograph
-  // of a star always shows some bloom around the point of light. A soft
-  // radial glow underneath a small crisp core gets both at once —
-  // atmosphere and precision together, not one traded for the other.
+  // A flat filled circle at the old size read as a data-viz bubble, not a
+  // star — flagged directly as "a bunch of blobs." Real starlight is a
+  // near-point core with a soft atmosphere around it, most of its visible
+  // size coming from that bloom, not from the point itself being large.
+  // The glow's own falloff matters as much as its radius: a plain
+  // two-stop gradient (bright center, fading straight to zero) still reads
+  // as a uniform disc; a tight, bright inner stop that then drops fast
+  // toward a long, faint tail is what a real bloom actually looks like.
+  // A thin four-point sparkle — the same diffraction-spike a long-exposure
+  // photograph of an actual star shows — is the one deliberately
+  // decorative touch here, kept faint enough to read as a quiet flourish
+  // rather than a shape competing with the dot underneath it.
   for (const it of items) {
-    const color = THEME_COLORS[it.theme] || THEME_COLORS.unsorted;
+    const color = FAMILY_COLORS[it.family] || FAMILY_COLORS[FALLBACK_FAMILY];
     const presence = it.node.nookUri ? 0.9 : 0.4; // Unsorted reads fainter — not yet decided, not hidden
 
-    const glowRadius = it.r * 3.4;
+    const glowRadius = it.r * 5.5;
     const glow = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, glowRadius);
-    glow.addColorStop(0, hexToRgba(color, presence * 0.5));
+    glow.addColorStop(0, hexToRgba(color, presence * 0.85));
+    glow.addColorStop(0.18, hexToRgba(color, presence * 0.3));
     glow.addColorStop(1, hexToRgba(color, 0));
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(it.x, it.y, glowRadius, 0, Math.PI * 2);
     ctx.fill();
+
+    const sparkleLength = it.r * 3.2;
+    ctx.globalAlpha = presence * 0.5;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(it.x - sparkleLength, it.y);
+    ctx.lineTo(it.x + sparkleLength, it.y);
+    ctx.moveTo(it.x, it.y - sparkleLength);
+    ctx.lineTo(it.x, it.y + sparkleLength);
+    ctx.stroke();
 
     ctx.globalAlpha = presence;
     ctx.fillStyle = color;
@@ -325,7 +440,11 @@ function attachConstellationInteractivity(canvas, items, tooltip) {
       const it = items[i];
       const dx = x - it.x;
       const dy = y - it.y;
-      if (dx * dx + dy * dy <= (it.r + 2) * (it.r + 2)) return it;
+      // Padding is wider than the dot itself now that the visual core is
+      // a near-point (dotRadius) — a hit target that small would be
+      // frustrating to actually hover, even though it's the right size to
+      // look at.
+      if (dx * dx + dy * dy <= (it.r + 6) * (it.r + 6)) return it;
     }
     return null;
   };
@@ -339,7 +458,9 @@ function attachConstellationInteractivity(canvas, items, tooltip) {
     }
     canvas.style.cursor = "pointer";
     const label = hit.node.year ? `${hit.node.title} (${hit.node.year})` : hit.node.title;
-    tooltip.textContent = hit.node.nookName ? `${label} — ${hit.node.nookName}` : label;
+    const withNook = hit.node.nookName ? `${label} — ${hit.node.nookName}` : label;
+    const familyLabel = hit.family === FALLBACK_FAMILY ? FALLBACK_LABEL : (ARCHETYPES[hit.family]?.title || hit.family);
+    tooltip.textContent = `${withNook} · ${familyLabel}`;
     tooltip.style.display = "block";
     tooltip.style.left = `${e.clientX + 12}px`;
     tooltip.style.top = `${e.clientY + 12}px`;
@@ -370,74 +491,43 @@ function attachConstellationInteractivity(canvas, items, tooltip) {
 // (scratchpad, not part of this repo) confirmed this recovers real,
 // non-obvious pattern; self-declared theme did not. ----
 
-// TMDB's own vocabulary, canonicalized: movie and TV genre lists overlap
-// but don't match exactly ("Action" vs "Action & Adventure", "Science
-// Fiction" vs "Sci-Fi & Fantasy") — this merges the synonyms and groups
-// genuinely adjacent genres into one family, the same grouping the study
-// found actually cluster together in practice. Format categories with no
-// real personality signal (News, Talk, Reality, Soap, TV Movie) are left
-// out entirely, not forced into a family they don't belong to.
-const TAG_FAMILY = {
-  Action: "trilha_aberta",
-  Adventure: "trilha_aberta",
-  "Action & Adventure": "trilha_aberta",
-  War: "trilha_aberta",
-  "War & Politics": "trilha_aberta",
-  Western: "trilha_aberta",
-  "Science Fiction": "outro_mundo",
-  Fantasy: "outro_mundo",
-  "Sci-Fi & Fantasy": "outro_mundo",
-  Mystery: "pergunta_certa",
-  Thriller: "pergunta_certa",
-  Crime: "pergunta_certa",
-  Horror: "vigilia",
-  Comedy: "sem_peso",
-  Animation: "sem_peso",
-  Family: "sem_peso",
-  Kids: "sem_peso",
-  Drama: "peso_real",
-  Romance: "coracao_exposto",
-  Documentary: "testemunha",
-  History: "testemunha",
-  Music: "testemunha",
-};
-
 const ARCHETYPES = {
   trilha_aberta: {
-    title: "Trilha Aberta",
-    voice:
-      "Você não guarda obra parada — precisa de movimento, de gente indo a algum lugar, de risco real. Seu gosto tem estrada, não sofá.",
+    title: "Wayfarer",
+    voice: "Your shelf doesn't sit still. It wants a body in motion and a reason worth the risk — comfort was never really what you were after.",
   },
   outro_mundo: {
-    title: "Outro Mundo",
+    title: "Stargazer",
     voice:
-      "Sua estante não cabe neste mundo — você coleciona o que só existe sob outra regra, outra física, outra lei. O real te interessa menos do que o possível.",
+      "The real world was never quite enough for you. What you keep coming back to runs on different laws, under a different sky — you're always looking past this one toward whatever's next.",
   },
   pergunta_certa: {
-    title: "A Pergunta Certa",
+    title: "Sleuth",
     voice:
-      "Você não guarda resposta — guarda pergunta. Cada obra na sua estante é um quebra-cabeça que ainda não contou tudo, e é assim que você gosta.",
+      "You don't collect endings. You collect the moment just before one, the thread still hanging — an answer would only mean it's time to start pulling at the next.",
   },
   vigilia: {
-    title: "A Vigília",
-    voice: "Você procura o que te assusta, de propósito. Sua estante não evita o medo — ela o estuda, volta a ele de novo.",
+    title: "Sentinel",
+    voice:
+      "You go looking for what's supposed to keep you up at night, on purpose, more than once. Not to conquer it — to stand watch over it longer than most people can stand to.",
   },
   sem_peso: {
-    title: "Sem Peso",
+    title: "Jester",
     voice:
-      "Você não pede que a obra sofra pra valer a pena. Seu gosto sabe rir de si mesmo — leveza não é falta de profundidade, é outra forma dela.",
+      "You've never needed a story to hurt before you'd trust it. What you keep close can laugh at itself, and treats that as its own kind of depth, not a shortcut around one.",
   },
   peso_real: {
-    title: "Peso Real",
-    voice: "Você não foge do que dói. Sua estante é feita de gente de verdade enfrentando coisa de verdade, sem fantasia pra suavizar.",
+    title: "Stoic",
+    voice: "You don't reach for the softened version. What you keep is made of people carrying something real, nothing dressed up to make it easier to hold.",
   },
   coracao_exposto: {
-    title: "Coração Exposto",
-    voice: "Você guarda o que ama abertamente. Sua estante não tem vergonha de sentir — cada obra aqui é sobre alguém que se permitiu amar.",
+    title: "Lover",
+    voice:
+      "You keep what you love out in the open, without flinching. Every work here is about someone who let themselves feel something all the way through — and so, quietly, are you.",
   },
   testemunha: {
-    title: "Testemunha",
-    voice: "Você prefere o que realmente aconteceu. Sua estante não inventa — ela registra, investiga, dá testemunho do que foi real.",
+    title: "Witness",
+    voice: "You reach for what actually happened. Your shelf doesn't invent — it records, it follows the thread back to where it started, and calls that its own kind of story.",
   },
 };
 
@@ -450,18 +540,25 @@ const MIN_FAMILY_SAMPLE = 5;
 // validated in the study.
 const NOTE_WEIGHT = 2;
 
+// One family per work — the exact same dominantFamily() rule the
+// constellation's own anchor uses — not "every family any of its tags
+// touch." That's the fix for a real disagreement found live: Drama is
+// TMDB's near-universal secondary genre (10 of one real 15-work shelf
+// carried it, alongside Action, Crime, Sci-Fi — whatever the work's real
+// genre was), so counting every touched family let Stoic (peso_real)
+// win the archetype text on a shelf that visually clustered almost
+// entirely in Wayfarer and Sleuth. Using the same one-family rule
+// as the anchor means the archetype's top family and the constellation's
+// biggest visible cluster are now mathematically the same computation,
+// not two algorithms that can quietly disagree over the same tag data.
 function familyMass(nodes) {
   const mass = {};
   const counts = {};
   for (const n of nodes) {
-    const seen = new Set();
-    for (const tag of n.tags || []) {
-      const family = TAG_FAMILY[tag];
-      if (!family || seen.has(family)) continue; // a work with 2 tags in the same family only counts once
-      seen.add(family);
-      counts[family] = (counts[family] || 0) + 1;
-      mass[family] = (mass[family] || 0) + 1 + n.noteCount * NOTE_WEIGHT;
-    }
+    const family = dominantFamily(n.tags);
+    if (family === FALLBACK_FAMILY) continue; // no recognized tag — doesn't count toward any family
+    counts[family] = (counts[family] || 0) + 1;
+    mass[family] = (mass[family] || 0) + 1 + n.noteCount * NOTE_WEIGHT;
   }
   return { mass, counts };
 }
@@ -485,7 +582,7 @@ function temporalSignature(nodes) {
   const gap = lateMin - earlyMax;
   const fullSpan = years[years.length - 1] - years[0];
   if (fullSpan > 0 && gap / fullSpan > 0.35 && gap > 15) {
-    return `E não é só um tipo de história — você atravessa décadas de propósito, sem medo de misturar o que já é clássico com o que acabou de sair.`;
+    return `And it's not just one era, either — you move between decades on purpose, unbothered by setting a classic right next to something that just came out.`;
   }
   return null;
 }
@@ -508,7 +605,7 @@ function voiceLocationSignature(nodes) {
   const loudest = entries.reduce((a, b) => (b.notes / b.works > a.notes / a.works ? b : a));
   const biggest = entries.reduce((a, b) => (b.works > a.works ? b : a));
   if (loudest !== biggest && loudest.works <= biggest.works * 0.6 && loudest.notes > 0) {
-    return "Curiosamente, é no seu canto menor e mais discreto que você mais tem o que dizer — sua voz de verdade mora onde poucos olham.";
+    return "Curiously, it's your smallest, quietest corner where you actually have the most to say — your real voice lives where almost no one else is looking.";
   }
   return null;
 }
@@ -519,9 +616,9 @@ function computeArchetype(nodes) {
   const eligible = Object.entries(mass).filter(([family]) => counts[family] >= MIN_FAMILY_SAMPLE);
   if (eligible.length === 0) {
     return {
-      title: "Ainda Formando",
-      voice: "Sua estante ainda não tem obras marcadas o bastante pra revelar um padrão real — isso pede tempo, não pressa.",
-      evidence: `${nodes.length} obra${nodes.length === 1 ? "" : "s"} na estante, poucas com tags reconhecidas ainda.`,
+      title: "Still Forming",
+      voice: "Your shelf doesn't have enough tagged works yet to reveal a real pattern. That takes time, not more effort.",
+      evidence: `${nodes.length} work${nodes.length === 1 ? "" : "s"} on the shelf, not enough with a recognized tag yet.`,
     };
   }
   eligible.sort((a, b) => b[1] - a[1]);
@@ -531,9 +628,9 @@ function computeArchetype(nodes) {
   const extra = temporalSignature(nodes) || voiceLocationSignature(nodes);
   const voice = extra ? `${archetype.voice} ${extra}` : archetype.voice;
 
-  const totalTagged = nodes.filter((n) => (n.tags || []).some((t) => TAG_FAMILY[t])).length;
+  const totalTagged = nodes.filter((n) => dominantFamily(n.tags) !== FALLBACK_FAMILY).length;
   const pct = totalTagged > 0 ? Math.round((counts[topFamily] / totalTagged) * 100) : 0;
-  const evidence = `${pct}% das suas obras marcadas puxam pra esse lado — ${counts[topFamily]} de ${totalTagged} com tag reconhecida.`;
+  const evidence = `${pct}% of your tagged shelf pulls this way — ${counts[topFamily]} of ${totalTagged} works with a recognized tag.`;
 
   return { title: archetype.title, voice, evidence };
 }
